@@ -1,8 +1,9 @@
+import os
 import streamlit as st
 import json
 from groq import Groq
 
-API_KEY = "your_key"
+API_KEY = os.getenv("API_KEY")
 client = Groq(api_key=API_KEY)
 
 try:

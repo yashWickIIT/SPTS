@@ -4,7 +4,7 @@ import json
 import time
 import os
 
-API_KEY = "your_key"
+API_KEY = os.getenv("API_KEY")
 client = Groq(api_key=API_KEY)
 
 
