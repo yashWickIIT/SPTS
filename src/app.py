@@ -1,8 +1,10 @@
 import os
+from dotenv import load_dotenv
 import streamlit as st
 import json
 from groq import Groq
 
+load_dotenv()
 API_KEY = os.getenv("API_KEY")
 client = Groq(api_key=API_KEY)
 
