@@ -1,6 +1,13 @@
 from google import genai
+from dotenv import load_dotenv
+import os
+from groq import Groq
 
-client = genai.Client(api_key="AIzaSyBZWLR-l1_diQMWk5R2lXHbCZNuzg1qRC8")
+
+load_dotenv()
+
+API_KEY = os.getenv("API_KEY")
+client = Groq(api_key=API_KEY)
 
 response = client.models.generate_content(
     model="gemini-3-pro-preview",
