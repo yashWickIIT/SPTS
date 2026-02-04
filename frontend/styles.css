@@ -6,6 +6,7 @@
     --card-bg: #ffffff;
     --text: #1e293b;
     --border: #e2e8f0;
+    --base: #94a3b8;
 }
 
 body {
@@ -167,5 +168,5 @@ button:disabled {
     font-weight: bold;
 }
 
-.status-empty { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+.status-empty { background: #f8f8f8; color: var(--base); border: 1px solid #cecfd1; }
 .status-success { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
