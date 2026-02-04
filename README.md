@@ -7,7 +7,7 @@ SPTS (Semantic Profiler for Text-to-SQL) addresses the critical research gap of 
 
 While modern Large Language Models (LLMs) excel at generating correct SQL syntax (*Schema Linking*), they frequently fail when user queries contain ambiguous, abbreviated, or "dirty" data values that do not strictly match database entries (e.g., searching for "LAUSD" when the database contains "Los Angeles Unified").
 
-This prototype demonstrates a novel **Offline Semantic Profiling** approach that constructs a **Value-Level Knowledge Graph (VLKG)** to resolve these ambiguities *before* SQL generation, significantly improving execution accuracy on real-world datasets like BIRD.
+This prototype demonstrates a novel **Offline Semantic Profiling** approach that constructs a **Value-Level Knowledge Graph (VLKG)** to resolve these ambiguities *before* SQL generation, significantly improving execution accuracy. For this project publicly available bird mini dev data set is used.
 ---
 
 ## Project Structure
