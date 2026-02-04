@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SPTS: Research Prototype</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>SPTS: Semantic Profiler</h1>
+        <div class="subtitle">
+          Value-Level Knowledge Graph for Robust Text-to-SQL
+        </div>
+      </header>
+
+      <div class="search-box">
+        <input
+          type="text"
+          id="query"
+          placeholder="Try a messy query: 'Count schools in LAUSD'"
+        />
+        <button onclick="runQuery()" id="runBtn">Run Experiment</button>
+      </div>
+
+      <div
+        class="grid"
+        id="resultsArea"
+        style="opacity: 0.5; pointer-events: none"
+      >
+        <div class="card" class="card" style="border-color:#64748b; border-width: 2px">
+          <div class="card-header">
+            <h2>Baseline Model</h2>
+            <span class="badge badge-base">Standard LLM</span>
+          </div>
+
+          <span class="label">GENERATED SQL</span>
+          <div class="sql-block" id="base-sql">Waiting for input...</div>
+
+          <span class="label">EXECUTION RESULT</span>
+          <div id="base-result" class="status status-empty">No Data</div>
+        </div>
+
+        <div class="card" style="border-color: #22c55e; border-width: 2px">
+          <div class="card-header">
+            <h2 style="color: #16a34a">SPTS</h2>
+            <span class="badge badge-spts">Graph Enhanced</span>
+          </div>
+
+          <div id="grounding-container" style="display: none">
+            <span class="label">KNOWLEDGE GRAPH REASONING</span>
+            <div class="grounding-box" id="grounding-text"></div>
+          </div>
+
+          <span class="label">GENERATED SQL</span>
+          <div class="sql-block" id="spts-sql">Waiting for input...</div>
+
+          <span class="label">EXECUTION RESULT</span>
+          <div id="spts-result" class="status status-success">Ready</div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
