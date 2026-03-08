@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SPTS: Research Prototype</title>
     <link rel="stylesheet" href="/static/styles.css" />
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   </head>
   <body>
     <div class="container">
@@ -53,9 +54,9 @@
             <span class="badge badge-spts">Graph Enhanced</span>
           </div>
 
-          <div id="grounding-container" style="display: none">
+          <div id="grounding-container" style="display: none; margin-bottom: 1.5rem;">
             <span class="label">KNOWLEDGE GRAPH REASONING</span>
-            <div class="grounding-box" id="grounding-text"></div>
+            <div id="kg-network" style="height: 250px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc; margin-top: 0.5rem;"></div>
           </div>
 
           <span class="label">GENERATED SQL</span>

@@ -52,16 +52,10 @@ async function runQuery() {
     renderResult("spts-result", data.spts_result);
 
     const groundingBox = document.getElementById("grounding-container");
-    const groundingText = document.getElementById("grounding-text");
 
     if (data.mappings && data.mappings.length > 0) {
       groundingBox.style.display = "block";
-      groundingText.innerHTML = data.mappings
-        .map(
-          (m) =>
-            `<div><strong>${m.original}</strong> <span class="arrow">➜</span> <strong>${m.grounded}</strong></div>`,
-        )
-        .join("");
+      renderKnowledgeGraph(data.mappings);
     } else {
       groundingBox.style.display = "none";
     }
@@ -131,4 +125,103 @@ function renderResult(elementId, resultData) {
   } else {
     el.textContent = `Success: ${count} Row(s) Found\nSample: "${sample}"...`;
   }
+}
+
+let network = null;
+
+function renderKnowledgeGraph(mappings) {
+  const nodes = new vis.DataSet();
+  const edges = new vis.DataSet();
+  
+  let nodeId = 1;
+  const addedNodes = new Map(); // Keep track by label to avoid duplicate schema nodes
+
+  mappings.forEach((mapping) => {
+    // Node A: Extracted Entity
+    const entityId = nodeId++;
+    nodes.add({
+      id: entityId,
+      label: mapping.original,
+      shape: "box",
+      color: { background: "#fecdd3", border: "#f43f5e" },
+      font: { color: "#881337", face: 'system-ui', size: 14 }
+    });
+
+    // Node B: Canonical Database Value
+    const valueId = nodeId++;
+    nodes.add({
+      id: valueId,
+      label: mapping.grounded,
+      shape: "box",
+      color: { background: "#dcfce7", border: "#22c55e" },
+      font: { color: "#14532d", face: 'system-ui', size: 14 }
+    });
+
+    // Node C: Database Schema Location (Deduplicate)
+    const schemaLabel = `${mapping.table}.${mapping.column}`;
+    let schemaId;
+    if (addedNodes.has(schemaLabel)) {
+      schemaId = addedNodes.get(schemaLabel);
+    } else {
+      schemaId = nodeId++;
+      nodes.add({
+        id: schemaId,
+        label: schemaLabel,
+        shape: "ellipse",
+        color: { background: "#dbeafe", border: "#3b82f6" },
+        font: { color: "#1e3a8a", face: 'system-ui', size: 14 } // ensure text visibility over light blue
+      });
+      addedNodes.set(schemaLabel, schemaId);
+    }
+
+    // Edge A -> B: Distance/Match
+    // E.g. "Semantic Match (0.65)"
+    const matchLabel = `${mapping.type} (${mapping.distance.toFixed(2)})`;
+    edges.add({
+      from: entityId,
+      to: valueId,
+      label: matchLabel,
+      arrows: "to",
+      font: { size: 12, face: 'system-ui', align: "top" },
+      color: { color: "#94a3b8" },
+      dashes: true
+    });
+
+    // Edge B -> C: Found in Column
+    edges.add({
+      from: valueId,
+      to: schemaId,
+      label: "Found in Column",
+      arrows: "to",
+      font: { size: 12, face: 'system-ui', align: "top" },
+      color: { color: "#94a3b8" }
+    });
+  });
+
+  const container = document.getElementById("kg-network");
+  const data = { nodes: nodes, edges: edges };
+  const options = {
+    layout: {
+      hierarchical: {
+        direction: "LR", // Left to Right
+        sortMethod: "directed",
+        nodeSpacing: 150,
+        levelSeparation: 250
+      }
+    },
+    physics: false, // Hierarchical layout disables standard physics but keep this clear
+    interaction: {
+      dragNodes: false,
+      zoomView: true,
+      dragView: true
+    }
+  };
+
+  // If a network already exists, destroy it before rendering the new one
+  if (network !== null) {
+    network.destroy();
+    network = null;
+  }
+  
+  network = new vis.Network(container, data, options);
 }
