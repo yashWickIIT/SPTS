@@ -1,3 +1,15 @@
+document.addEventListener('DOMContentLoaded', () => {
+  const token = localStorage.getItem('spts_token');
+  if (!token) {
+      window.location.href = '/static/login.html';
+  }
+});
+
+function logout() {
+  localStorage.removeItem('spts_token');
+  window.location.href = '/static/login.html';
+}
+
 async function runQuery() {
   const queryInput = document.getElementById("query");
   const btn = document.getElementById("runBtn");
@@ -11,11 +23,25 @@ async function runQuery() {
   document.getElementById("grounding-container").style.display = "none";
 
   try {
+    const token = localStorage.getItem('spts_token');
+    if (!token) {
+      logout();
+      return;
+    }
+
     const response = await fetch("/query", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
       body: JSON.stringify({ query: queryInput.value }),
     });
+
+    if (response.status === 401) {
+      logout();
+      return;
+    }
 
     const data = await response.json();
 
