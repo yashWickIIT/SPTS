@@ -34,3 +34,22 @@ SPTS/
 │
 ├── requirements.txt       # Python Dependencies
 └── README.md              # Documentation
+
+## Storage Path Configuration
+
+Decision for this prototype:
+- Keep the `data/` folder in the repository workflow.
+- Avoid hardcoded paths in source code by configuring DB/vector storage via `.env`.
+
+1. Create `.env` from `.env.example`.
+2. Set these variables (relative paths are resolved from project root):
+
+```env
+API_KEY=your_groq_api_key_here
+SECRET_KEY=replace_with_a_strong_random_secret
+SPTS_MAIN_DB_PATH=data/bird_mini_dev.sqlite
+SPTS_USERS_DB_PATH=data/users.sqlite
+SPTS_CHROMA_PATH=kg/chroma_db
+```
+
+If variables are omitted, the code falls back to these same prototype defaults.

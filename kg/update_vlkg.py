@@ -4,17 +4,15 @@ import sys
 import uuid
 import chromadb
 from groq import Groq
-from dotenv import load_dotenv
 
 # Add the backend directory to sys.path to access the embedding utility
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, "..", "backend"))
 from embedding_util import get_embeddings_batch
+from config import get_env_path
 
-load_dotenv()
-
-DB_PATH = os.path.join(BASE_DIR, "..", "data", "bird_mini_dev.sqlite")
-CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
+DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
+CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 
 API_KEY = os.getenv("API_KEY")
 client = Groq(api_key=API_KEY)

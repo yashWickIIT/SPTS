@@ -4,18 +4,16 @@ import sys
 import uuid
 import chromadb
 from groq import Groq
-from dotenv import load_dotenv
 
 # 1. Add the backend directory to sys.path to import the embedding utility
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, "..", "backend"))
 from embedding_util import get_embeddings_batch
+from config import get_env_path
 
-load_dotenv()
-
-DB_PATH = os.path.join(BASE_DIR, "..", "data", "bird_mini_dev.sqlite")
+DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
 # 2. Define where the Vector DB will be saved locally
-CHROMA_PATH = os.path.join(BASE_DIR, "chroma_db")
+CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 
 API_KEY = os.getenv("API_KEY")
 client = Groq(api_key=API_KEY)

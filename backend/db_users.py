@@ -1,11 +1,13 @@
 import sqlite3
 import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from config import get_env_path
+
 # Separate DB for users to avoid messing with the main dataset db
-USERS_DB_PATH = os.path.join(BASE_DIR, "..", "data", "users.sqlite")
+USERS_DB_PATH = get_env_path("SPTS_USERS_DB_PATH", os.path.join("data", "users.sqlite"))
 
 def init_users_db():
+    os.makedirs(os.path.dirname(USERS_DB_PATH), exist_ok=True)
     conn = sqlite3.connect(USERS_DB_PATH)
     cursor = conn.cursor()
     cursor.execute('''

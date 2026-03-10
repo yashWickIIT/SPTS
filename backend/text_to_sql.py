@@ -1,12 +1,9 @@
 import os
 import sqlite3
 from groq import Groq
-from dotenv import load_dotenv
+from config import get_env_path
 
-load_dotenv()
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "..", "data", "bird_mini_dev.sqlite")
+DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
 
 client = Groq(api_key=os.getenv("API_KEY"))
 

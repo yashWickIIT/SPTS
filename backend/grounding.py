@@ -3,13 +3,10 @@ import re
 import json
 import chromadb
 from groq import Groq
-from dotenv import load_dotenv
 from embedding_util import get_embedding
+from config import get_env_path
 
-load_dotenv()
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CHROMA_PATH = os.path.join(BASE_DIR, "..", "kg", "chroma_db")
+CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 
 print("Initializing ChromaDB connection in grounding...")
 try:
