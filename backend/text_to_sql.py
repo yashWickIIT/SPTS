@@ -46,6 +46,8 @@ def get_schema_summary():
 
     return schema_str
 
+import time
+
 def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
     schema_context = get_schema_summary()
 
@@ -57,16 +59,24 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
     """
 
     user_prompt = f"Schema:\n{schema_context}\nQuestion: {user_query}"
+    
+    injected_context_str = "None"
 
     if mode == "SPTS":
+        injected_context_str = "DATABASE HINTS:\n"
         user_prompt += "\n\nDATABASE HINTS (Use these canonical values for exact matching in your WHERE clauses):"
         if mappings and len(mappings) > 0:
             for mapping in mappings:
-                user_prompt += f"\n- The user's term '{mapping['original']}' maps to the exact database value '{mapping['grounded']}' in the `{mapping['table']}.{mapping['column']}` column."
+                hint = f"- The user's term '{mapping['original']}' maps to the exact database value '{mapping['grounded']}' in the `{mapping['table']}.{mapping['column']}` column."
+                user_prompt += f"\n{hint}"
+                injected_context_str += f"{hint}\n"
         else:
-            user_prompt += "\n- No semantic hints found. Rely strictly on the schema."
+            hint = "- No semantic hints found. Rely strictly on the schema."
+            user_prompt += f"\n{hint}"
+            injected_context_str += f"{hint}\n"
 
     try:
+        start_time = time.time()
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -75,14 +85,34 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
             ],
             temperature=0,
         )
-        return (
-            completion.choices[0]
-            .message.content.replace("```sql", "")
-            .replace("```", "")
-            .strip()
-        )
+        latency = (time.time() - start_time) * 1000  # in ms
+        
+        sql = completion.choices[0].message.content.replace("```sql", "").replace("```", "").strip()
+        tokens = {
+            "prompt_tokens": completion.usage.prompt_tokens,
+            "completion_tokens": completion.usage.completion_tokens,
+            "total_tokens": completion.usage.total_tokens
+        }
+        
+        return {
+            "sql": sql,
+            "rationale": {
+                "system_prompt": system_prompt.strip(),
+                "injected_context": injected_context_str.strip(),
+                "latency_ms": round(latency, 2),
+                "token_usage": tokens
+            }
+        }
     except Exception as e:
-        return f"SELECT * FROM error; -- API Error: {str(e)}"
+        return {
+            "sql": f"SELECT * FROM error; -- API Error: {str(e)}",
+            "rationale": {
+                "system_prompt": system_prompt.strip(),
+                "injected_context": injected_context_str.strip(),
+                "latency_ms": 0,
+                "token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            }
+        }
 
 def baseline_text_to_sql(user_query):
     return generate_sql_with_llm(user_query, mode="Baseline")

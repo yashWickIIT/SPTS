@@ -22,6 +22,17 @@ async function runQuery() {
   document.getElementById("spts-sql").textContent = "Waiting...";
   document.getElementById("grounding-container").style.display = "none";
 
+  // Reset Rationale Panel State before fetch
+  const rationaleDataBlock = document.getElementById("rationale-data");
+  const rationaleLoader = document.getElementById("rationale-loader");
+  const rationaleEmpty = document.getElementById("rationale-empty");
+  const rationaleBtn = document.getElementById("rationaleBtn");
+
+  if (rationaleDataBlock) rationaleDataBlock.style.display = "none";
+  if (rationaleEmpty) rationaleEmpty.style.display = "none";
+  if (rationaleLoader) rationaleLoader.style.display = "block";
+  if (rationaleBtn) rationaleBtn.style.display = "flex"; // Show the button when loading starts
+
   try {
     const token = localStorage.getItem('spts_token');
     if (!token) {
@@ -59,13 +70,25 @@ async function runQuery() {
     } else {
       groundingBox.style.display = "none";
     }
+
+    // Populate Rationale Panel (Using SPTS Rationale)
+    if (data.spts_rationale) {
+      populateRationale(data.spts_rationale);
+    } else {
+      showRationaleEmpty();
+    }
+
   } catch (err) {
     alert("Error: " + err);
     console.error(err);
+    showRationaleEmpty();
   } finally {
     btn.disabled = false;
     btn.textContent = "Run Experiment";
-    document.getElementById("resultsArea").style.opacity = "1";
+    const resultsArea = document.getElementById("resultsArea");
+    resultsArea.style.opacity = "1";
+    resultsArea.style.pointerEvents = "auto";
+    if (rationaleLoader) rationaleLoader.style.display = "none";
   }
 }
 
@@ -224,4 +247,72 @@ function renderKnowledgeGraph(mappings) {
   }
   
   network = new vis.Network(container, data, options);
+}
+
+// ==========================================
+// Rationale Side Panel Logic
+// ==========================================
+
+let isRationaleVisible = false;
+let currentRationaleData = null;
+
+function toggleRationale() {
+  const panel = document.getElementById("rationale-panel");
+  if (!panel) return;
+
+  isRationaleVisible = !isRationaleVisible;
+  
+  if (isRationaleVisible) {
+    // Show as flex since it's a card container
+    panel.style.display = "flex";
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    panel.style.display = "none";
+  }
+}
+
+function showRationaleEmpty() {
+  document.getElementById("rationale-loader").style.display = "none";
+  document.getElementById("rationale-data").style.display = "none";
+  document.getElementById("rationale-empty").style.display = "flex";
+}
+
+function populateRationale(rationaleObj) {
+  currentRationaleData = rationaleObj;
+  
+  document.getElementById("rationale-empty").style.display = "none";
+  document.getElementById("rationale-loader").style.display = "none";
+  document.getElementById("rationale-data").style.display = "block";
+
+  // Metrics
+  document.getElementById("rat-latency").textContent = `${rationaleObj.latency_ms} ms`;
+  document.getElementById("rat-tokens").textContent = rationaleObj.token_usage ? rationaleObj.token_usage.total_tokens : "--";
+
+  // System Prompt
+  document.getElementById("rat-system").textContent = rationaleObj.system_prompt || "No system prompt recorded.";
+  
+  // Injected Context
+  document.getElementById("rat-context").textContent = rationaleObj.injected_context || "None";
+  
+  // Flags & Usage Structure
+  let flagsData = { ...rationaleObj };
+  delete flagsData.system_prompt;
+  delete flagsData.injected_context;
+  document.getElementById("rat-flags").textContent = JSON.stringify(flagsData, null, 2);
+}
+
+async function copyRationale() {
+  if (!currentRationaleData) {
+    alert("No reasoning data available to copy.");
+    return;
+  }
+  
+  try {
+    const textToCopy = JSON.stringify(currentRationaleData, null, 2);
+    await navigator.clipboard.writeText(textToCopy);
+    alert("Copied reasoning trace to clipboard!");
+  } catch (err) {
+    console.error("Failed to copy text: ", err);
+    alert("Failed to copy to clipboard.");
+  }
 }

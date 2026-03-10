@@ -66,18 +66,26 @@ def query(payload: dict, current_user: dict = Depends(get_current_user)):
     # FIX: Use '_' to ignore the returned query string since we only need the mappings now
     _, mappings = ground_query(user_query)
     
-    baseline_sql = baseline_text_to_sql(user_query)
+    # Now returns {"sql": "...", "rationale": {...}}
+    baseline_response = baseline_text_to_sql(user_query)
+    baseline_sql = baseline_response["sql"]
+    baseline_rationale = baseline_response["rationale"]
     
     # We pass the original untouched user_query, plus our new Vector DB hints
-    spts_sql = spts_text_to_sql(user_query, mappings)
+    spts_response = spts_text_to_sql(user_query, mappings)
+    spts_sql = spts_response["sql"]
+    spts_rationale = spts_response["rationale"]
 
     baseline_result = execute_sql(baseline_sql)
     spts_result = execute_sql(spts_sql)
 
     # 1-pass auto-correction loop for SPTS
     if not spts_result["success"]:
+        # fix_sql_with_llm still returns just the SQL string based on previous signature
         spts_sql = fix_sql_with_llm(user_query, spts_sql, spts_result["error"], mappings)
         spts_result = execute_sql(spts_sql)
+        # Optional: we update rationale to indicate a fix occurred, but keep the original latency/tokens for simplicity or add a flag
+        spts_rationale["auto_corrected"] = True
 
     # Safely format result for frontend compatibility (`app.js` expects arrays)
     def format_res(res):
@@ -88,7 +96,9 @@ def query(payload: dict, current_user: dict = Depends(get_current_user)):
     return {
         "baseline_sql": baseline_sql,
         "baseline_result": format_res(baseline_result),
+        "baseline_rationale": baseline_rationale,
         "spts_sql": spts_sql,
         "spts_result": format_res(spts_result),
+        "spts_rationale": spts_rationale,
         "mappings": mappings,
     }
