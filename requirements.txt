@@ -4,3 +4,11 @@ pandas
 streamlit
 google-generativeai
 openpyxl
+groq
+python-dotenv
+sqlalchemy
+sentence-transformers
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+apscheduler

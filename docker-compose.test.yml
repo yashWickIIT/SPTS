@@ -1,0 +1,12 @@
+services:
+  spts-test:
+    image: spts-test          # built via: docker build -f Dockerfile.test -t spts-test .
+    container_name: spts-test-container
+    ports:
+      - "8000:8000"
+    volumes:
+      # Session files land here so testers can share them with you
+      - ./sessions:/app/sessions
+    env_file:
+      - .env.test             # testers put their API_KEY here
+    restart: unless-stopped

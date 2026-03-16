@@ -4,14 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SPTS: Research Prototype</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=4" />
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   </head>
   <body>
     <div class="container">
       <header>
-        <h1>SPTS: Semantic Profiler</h1>
-        <div class="subtitle">
-          Value-Level Knowledge Graph for Robust Text-to-SQL
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <h1>SPTS: Semantic Profiler</h1>
+            <div class="subtitle">
+              Value-Level Knowledge Graph for Robust Text-to-SQL
+            </div>
+          </div>
+          <button onclick="logout()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer;">Logout</button>
         </div>
       </header>
 
@@ -42,15 +48,21 @@
           <div id="base-result" class="status status-empty">No Data</div>
         </div>
 
-        <div class="card" style="border-color: #22c55e; border-width: 2px">
+        <div class="card" style="border-color: #22c55e; border-width: 2px; position: relative;">
           <div class="card-header">
             <h2 style="color: #16a34a">SPTS</h2>
-            <span class="badge badge-spts">Graph Enhanced</span>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <button onclick="toggleRationale()" id="rationaleBtn" class="toggle-btn" title="View AI Reasoning & Raw Prompt" style="display: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
+                Under the Hood
+              </button>
+              <span class="badge badge-spts">Graph Enhanced</span>
+            </div>
           </div>
 
-          <div id="grounding-container" style="display: none">
+          <div id="grounding-container" style="display: none; margin-bottom: 1.5rem;">
             <span class="label">KNOWLEDGE GRAPH REASONING</span>
-            <div class="grounding-box" id="grounding-text"></div>
+            <div id="kg-network" style="height: 250px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc; margin-top: 0.5rem;"></div>
           </div>
 
           <span class="label">GENERATED SQL</span>
@@ -62,6 +74,78 @@
       </div>
     </div>
 
-    <script src="/static/app.js"></script>
+    <!-- Rationale Inline Card -->
+    <div id="rationale-panel" class="card rationale-card" style="display: none; margin-top: 2rem; border-color: var(--primary); border-width: 2px;">
+      <div class="card-header" style="border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; padding-bottom: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
+          <h2 style="color: var(--primary); margin: 0; font-size: 1.25rem;">Diagnostic Console: Under the Hood</h2>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button onclick="copyRationale()" class="icon-btn" title="Copy to Clipboard" style="border: 1px solid var(--border); padding: 6px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+            Copy JSON
+          </button>
+          <button onclick="toggleRationale()" class="icon-btn" title="Close" style="border: 1px solid var(--border); padding: 6px 12px; font-size: 0.85rem;">
+            Close
+          </button>
+        </div>
+      </div>
+      
+      <div class="rationale-content" id="rationale-content" style="padding: 0;">
+        <div class="skeleton-loader" id="rationale-loader" style="display: none; padding: 1.5rem;">
+          <div class="pulse-line" style="width: 80%"></div>
+          <div class="pulse-line" style="width: 60%"></div>
+          <div class="pulse-line" style="width: 90%"></div>
+          <br>
+          <div class="pulse-line" style="width: 70%"></div>
+          <div class="pulse-line" style="width: 40%"></div>
+        </div>
+        
+        <div id="rationale-data" style="display: none; padding-top: 1rem;">
+          <!-- Metrics -->
+          <div class="metrics-row" style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+            <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+              <span class="metric-label" style="display: block; font-size: 0.75rem; color: var(--base); margin-bottom: 0.25rem; text-transform: uppercase;">Latency</span>
+              <span class="metric-value" id="rat-latency" style="font-size: 1.5rem; color: var(--primary); font-weight: bold;">-- ms</span>
+            </div>
+            <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+              <span class="metric-label" style="display: block; font-size: 0.75rem; color: var(--base); margin-bottom: 0.25rem; text-transform: uppercase;">Total Tokens</span>
+              <span class="metric-value" id="rat-tokens" style="font-size: 1.5rem; color: var(--primary); font-weight: bold;">--</span>
+            </div>
+          </div>
+          
+          <!-- Accordion 1 -->
+          <details class="rationale-accordion" open style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1rem;">
+            <summary style="padding: 1rem; cursor: pointer; font-weight: bold; background: var(--card-bg); border-bottom: 1px solid var(--border);">System Prompt & Instructs</summary>
+            <div class="accordion-body" style="padding: 1rem;">
+              <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;"><code id="rat-system" style="font-family: Consolas, monospace; color: var(--text);"></code></pre>
+            </div>
+          </details>
+          
+          <!-- Accordion 2 -->
+          <details class="rationale-accordion" open style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1rem;">
+            <summary style="padding: 1rem; cursor: pointer; font-weight: bold; background: var(--card-bg); border-bottom: 1px solid var(--border);">Injected Context & DB Hints</summary>
+            <div class="accordion-body" style="padding: 1rem;">
+              <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;"><code id="rat-context" class="highlight-green" style="font-family: Consolas, monospace; color: var(--success);"></code></pre>
+            </div>
+          </details>
+          
+          <!-- Accordion 3 -->
+          <details class="rationale-accordion" style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+            <summary style="padding: 1rem; cursor: pointer; font-weight: bold; background: var(--card-bg); border-bottom: 1px solid var(--border);">API Response Flags</summary>
+            <div class="accordion-body" style="padding: 1rem;">
+              <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;"><code id="rat-flags" style="font-family: Consolas, monospace; color: var(--text);"></code></pre>
+            </div>
+          </details>
+        </div>
+        
+        <div id="rationale-empty" class="rationale-empty" style="text-align: center; padding: 2rem; color: var(--base);">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <p style="margin:0;">Run an experiment to view AI reasoning.</p>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/app.js?v=5"></script>
   </body>
 </html>

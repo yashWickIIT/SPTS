@@ -1,0 +1,75 @@
+# Git
+.git/
+.github/
+.gitignore
+.gitattributes
+
+# Environment and configuration
+.env
+.env.*.local
+.env.local
+
+# Python
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.tox/
+dist/
+build/
+
+# IDE and editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Development and testing
+test_req.py
+evaluate.py
+metrics_calculator.py
+README.md
+*.test.js
+*.test.py
+
+# Runtime-mounted assets (do not bake into image)
+data/
+kg/chroma_db/
+
+# Offline tooling not required by API container
+kg/build_vlkg.py
+
+# Logs
+*.log
+logs/
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Development/documentation files
+docs/
+examples/
+.editorconfig
+.pre-commit-config.yaml

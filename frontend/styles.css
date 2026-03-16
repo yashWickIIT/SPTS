@@ -170,3 +170,147 @@ button:disabled {
 
 .status-empty { background: #f8f8f8; color: var(--base); border: 1px solid #cecfd1; }
 .status-success { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+
+/* Rationale Side Panel (Terminal UI) */
+.toggle-btn {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.toggle-btn:hover { background: #e2e8f0; }
+
+.rationale-panel {
+    position: fixed;
+    top: 0;
+    right: -550px; /* Hidden by default */
+    width: 500px;
+    height: 100vh;
+    background: var(--card-bg);
+    color: var(--text);
+    box-shadow: -5px 0 25px rgba(0,0,0,0.1);
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+.rationale-panel.open {
+    right: 0;
+}
+
+.rationale-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg);
+}
+.rationale-header h3 {
+    margin: 0;
+    color: var(--primary);
+    font-size: 1.1rem;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.icon-btn {
+    background: transparent;
+    color: var(--base);
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.icon-btn:hover { background: #f1f5f9; color: var(--text); }
+
+.rationale-content {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+/* Metrics Row */
+.metrics-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.metric-card {
+    background: var(--bg);
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    flex: 1;
+    border: 1px solid var(--border);
+}
+.metric-label {
+    display: block;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-bottom: 0.25rem;
+}
+.metric-value {
+    font-size: 1.25rem;
+    color: #10b981;
+    font-weight: bold;
+}
+
+/* Accordions */
+.rationale-accordion {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+}
+.rationale-accordion summary {
+    padding: 0.75rem 1rem;
+    background: var(--bg);
+    color: var(--text);
+    font-weight: bold;
+    font-size: 0.9rem;
+    cursor: pointer;
+    user-select: none;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.rationale-accordion summary:hover { background: #e2e8f0; }
+.accordion-body {
+    padding: 1rem;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+}
+pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+code { font-size: 0.85rem; color: #334155; }
+.highlight-green { color: var(--success); } /* Specific for injected context */
+
+.rationale-empty {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #475569;
+    text-align: center;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Skeleton loader */
+.skeleton-loader { padding: 1rem; }
+.pulse-line {
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}

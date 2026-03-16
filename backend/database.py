@@ -1,19 +1,11 @@
-import sqlite3
-import os
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "..", "data", "bird_mini_dev.sqlite")
+try:
+    from .db_client import execute_raw_sql
+except ImportError:
+    from db_client import execute_raw_sql
 
 def execute_sql(sql: str):
-    if not os.path.exists(DB_PATH):
-        return [("Error: Database not found at " + DB_PATH,)]
-        
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute(sql)
-        result = cursor.fetchall()
-        conn.close()
-        return result
+        result = execute_raw_sql(sql)
+        return {"success": True, "data": result}
     except Exception as e:
-        return [(str(e),)]
+        return {"success": False, "error": str(e)}

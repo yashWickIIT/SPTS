@@ -1,0 +1,109 @@
+# SPTS Tester Guide
+
+Welcome! You've been asked to test **SPTS (Smart Passenger Transport System)** — a natural-language to SQL query tool.
+
+---
+
+## What you need
+
+| Requirement | Notes |
+|---|---|
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Free, install and start it |
+| A **Groq API key** | Free at [console.groq.com](https://console.groq.com) — takes ~1 min to sign up |
+| The image file `spts-test.tar` | Shared with you separately |
+
+---
+
+## Step-by-step setup
+
+### 1 — Load the Docker image
+
+Open a terminal (PowerShell on Windows, Terminal on Mac/Linux) and run:
+
+```bash
+docker load -i spts-test.tar
+```
+
+You should see: `Loaded image: spts-test:latest`
+
+---
+
+### 2 — Create your API key file
+
+In the **same folder as this file**, create a file called `.env.test` with this content:
+
+```
+API_KEY=your_actual_groq_api_key_here
+```
+
+> Replace `your_actual_groq_api_key_here` with your real key from [console.groq.com](https://console.groq.com).
+
+---
+
+### 3 — Start the app
+
+```bash
+docker compose -f docker-compose.test.yml up
+```
+
+Wait until you see a line like:
+```
+INFO:     Application startup complete.
+```
+
+---
+
+### 4 — Open the app
+
+Go to **[http://localhost:8000](http://localhost:8000)** in your browser.
+
+Login with:
+- **Username:** `tester`
+- **Password:** `spts-test-2024`
+
+---
+
+### 5 — Run your queries
+
+Type natural-language questions into the query box and submit them. For example:
+- *"Which airports are in California?"*
+- *"Show the top 5 airlines by number of flights"*
+
+---
+
+### 6 — Share your session file
+
+After running your queries, a file will appear in the `sessions/` folder next to this guide:
+
+```
+sessions/session_tester.json
+```
+
+**Please send this file back** — it contains your queries and both system outputs (baseline vs SPTS), which is the data needed for evaluation.
+
+> ⚠️ The file is read-only — do not try to edit it. Just attach it to an email or message.
+
+---
+
+### Stopping the app
+
+Press `Ctrl+C` in the terminal where Docker is running, or run:
+
+```bash
+docker compose -f docker-compose.test.yml down
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| Port 8000 already in use | Stop any other app on port 8000, or change `"8000:8000"` to `"8001:8000"` in `docker-compose.test.yml` |
+| `API_KEY` error at startup | Check `.env.test` — make sure there are no extra spaces or quotes |
+| Docker not found | Make sure Docker Desktop is running (check the system tray) |
+| Page won't load | Wait a few more seconds for startup; the ML models take ~30s to initialise |
+
+---
+
+*Thank you for helping test SPTS! 🙏*

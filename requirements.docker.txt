@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+groq
+python-dotenv
+sqlalchemy
+chromadb
+sentence-transformers
+torch==2.5.1+cpu
+numpy<2
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+apscheduler
