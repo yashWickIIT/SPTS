@@ -18,7 +18,7 @@ SPTS/
 │   ├── app.py             # Main API & Server
 │   ├── grounding.py       # Entity Resolution Logic 
 │   ├── text_to_sql.py     # LLM Interaction Layer
-│   └── database.py        # SQLite Execution Engine
+│   └── database.py        # SQL Execution Engine
 │
 ├── frontend/              # Dashboard
 │   ├── index.html         # Main User Interface
@@ -40,6 +40,7 @@ SPTS/
 Decision for this prototype:
 - Keep the `data/` folder in the repository workflow.
 - Avoid hardcoded paths in source code by configuring DB/vector storage via `.env`.
+- Support external enterprise databases with zero Python code changes.
 
 1. Create `.env` from `.env.example`.
 2. Set these variables (relative paths are resolved from project root):
@@ -47,9 +48,19 @@ Decision for this prototype:
 ```env
 API_KEY=your_groq_api_key_here
 SECRET_KEY=replace_with_a_strong_random_secret
+SPTS_DATABASE_URL=
 SPTS_MAIN_DB_PATH=data/bird_mini_dev.sqlite
 SPTS_USERS_DB_PATH=data/users.sqlite
 SPTS_CHROMA_PATH=kg/chroma_db
 ```
 
-If variables are omitted, the code falls back to these same prototype defaults.
+Connection precedence:
+1. If `SPTS_DATABASE_URL` is set, SPTS connects to that external database.
+2. If `SPTS_DATABASE_URL` is empty, SPTS falls back to `SPTS_MAIN_DB_PATH` (prototype SQLite).
+
+External DB URL examples:
+- PostgreSQL: `postgresql+psycopg2://user:pass@host:5432/dbname`
+- MySQL: `mysql+pymysql://user:pass@host:3306/dbname`
+- SQL Server: `mssql+pyodbc://user:pass@host:1433/dbname?driver=ODBC+Driver+18+for+SQL+Server`
+
+Note: install the matching SQLAlchemy driver package in your environment (for example `psycopg2-binary`, `pymysql`, or `pyodbc`).

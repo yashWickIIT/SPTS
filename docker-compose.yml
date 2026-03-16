@@ -1,0 +1,13 @@
+services:
+  spts-app:
+    build: .
+    container_name: spts-container
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the local data and kg folders so databases and vectors persist!
+      - ./data:/app/data
+      - ./kg/chroma_db:/app/kg/chroma_db
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -21,3 +22,15 @@ def get_env_path(env_key: str, default_relative_path: str) -> str:
         return path
 
     return os.path.abspath(os.path.join(PROJECT_ROOT, default_relative_path))
+
+
+def get_main_database_url() -> str:
+    """Return DB URL from env, or fall back to local sqlite prototype path."""
+    explicit_url = os.getenv("SPTS_DATABASE_URL", "").strip()
+    if explicit_url:
+        return explicit_url
+
+    sqlite_path = Path(
+        get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
+    )
+    return f"sqlite:///{sqlite_path.as_posix()}"

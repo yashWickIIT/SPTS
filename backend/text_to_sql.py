@@ -1,59 +1,60 @@
 import os
-import sqlite3
-from groq import Groq
-from config import get_env_path
+import time
 
-DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
+from groq import Groq
+try:
+    from .db_client import (
+        get_main_dialect_name,
+        get_table_columns,
+        get_table_foreign_keys,
+        list_user_tables,
+    )
+except ImportError:
+    from db_client import (
+    get_main_dialect_name,
+    get_table_columns,
+    get_table_foreign_keys,
+    list_user_tables,
+    )
 
 client = Groq(api_key=os.getenv("API_KEY"))
 
 def get_schema_summary():
-    if not os.path.exists(DB_PATH):
-        return "Error: Database not found."
-
     schema_str = ""
     try:
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = [r[0] for r in cursor.fetchall() if r[0] != 'sqlite_sequence']
+        tables = list_user_tables()
 
         for table in tables:
-            cursor.execute(f"PRAGMA table_info({table})")
-            columns = cursor.fetchall()
-            col_desc = ", ".join([f"{c[1]} ({c[2]})" for c in columns])
+            columns = get_table_columns(table)
+            col_desc = ", ".join([f"{c['name']} ({c['type']})" for c in columns])
             schema_str += f"Table: {table}\nColumns: {col_desc}\n"
-            
-            cursor.execute(f"PRAGMA foreign_key_list({table})")
-            fks = cursor.fetchall()
+
+            fks = get_table_foreign_keys(table)
             if fks:
                 schema_str += "Foreign Keys:\n"
                 for fk in fks:
-                    target_table = fk[2]
-                    source_column = fk[3]
-                    target_column = fk[4]
-                    schema_str += f"  - {table}.{source_column} references {target_table}.{target_column}\n"
-            
-            schema_str += "\n"
+                    target_table = fk.get("referred_table", "unknown_table")
+                    source_cols = fk.get("constrained_columns", [])
+                    target_cols = fk.get("referred_columns", [])
+                    for source_col, target_col in zip(source_cols, target_cols):
+                        schema_str += f"  - {table}.{source_col} references {target_table}.{target_col}\n"
 
-        conn.close()
+            schema_str += "\n"
     except Exception as e:
         schema_str = f"Error reading schema: {str(e)}"
 
     return schema_str
 
-import time
-
 def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
     schema_context = get_schema_summary()
+    sql_dialect = get_main_dialect_name()
 
     system_prompt = """
-    You are a SQL expert. Output ONLY valid SQLite code. No Markdown.
+    You are a SQL expert. Output ONLY valid SQL code for the configured database dialect: {sql_dialect}. No Markdown.
     RULES:
     1. Always use parenthesis for aggregation functions, e.g., COUNT(*).
     2. Do not explain your answer. Just output the SQL.
-    """
+    """.format(sql_dialect=sql_dialect)
 
     user_prompt = f"Schema:\n{schema_context}\nQuestion: {user_query}"
     
@@ -120,17 +121,18 @@ def spts_text_to_sql(user_query, mappings=None):
 
 def fix_sql_with_llm(user_query, bad_sql, error_message, mappings=None):
     schema_context = get_schema_summary()
+    sql_dialect = get_main_dialect_name()
 
     system_prompt = """
     You are a SQL debugging expert. The user's previous SQL query failed. 
-    Output ONLY the corrected, valid SQLite code. No Markdown.
+    Output ONLY the corrected, valid SQL code for the configured database dialect: {sql_dialect}. No Markdown.
     RULES:
     1. Always use parenthesis for aggregation functions, e.g., COUNT(*).
     2. Do not explain your answer or include any text other than the SQL.
-    3. Fix the specific SQLite error provided.
-    """
+    3. Fix the specific database error provided.
+    """.format(sql_dialect=sql_dialect)
 
-    user_prompt = f"Schema:\n{schema_context}\n\nQuestion: {user_query}\n\nFailed SQL:\n{bad_sql}\n\nSQLite Error:\n{error_message}\n\nPlease provide the corrected SQL."
+    user_prompt = f"Schema:\n{schema_context}\n\nQuestion: {user_query}\n\nFailed SQL:\n{bad_sql}\n\nDatabase Error:\n{error_message}\n\nPlease provide the corrected SQL."
 
     if mappings and len(mappings) > 0:
         user_prompt += "\n\nDATABASE HINTS (Use these canonical values for exact matching in your WHERE clauses):"

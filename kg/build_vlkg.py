@@ -1,4 +1,3 @@
-import sqlite3
 import os
 import sys
 import uuid
@@ -10,8 +9,14 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(BASE_DIR, "..", "backend"))
 from embedding_util import get_embeddings_batch
 from config import get_env_path
+from db_client import (
+    count_distinct_non_null,
+    fetch_distinct_non_null_values,
+    get_table_columns,
+    is_textual_column_type,
+    list_user_tables,
+)
 
-DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
 # 2. Define where the Vector DB will be saved locally
 CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 
@@ -47,10 +52,6 @@ def generate_synonyms(value, column_context):
         return []
 
 def build_graph():
-    if not os.path.exists(DB_PATH):
-        print(f"Error: Database not found at {DB_PATH}")
-        return
-
     print("Initializing ChromaDB Persistent Client...")
     chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
     
@@ -63,18 +64,13 @@ def build_graph():
         
     collection = chroma_client.create_collection(name=collection_name)
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [r[0] for r in cursor.fetchall() if r[0] != 'sqlite_sequence']
+    tables = list_user_tables()
 
     for table in tables:
         print(f"\nAnalyzing table: {table}")
-        cursor.execute(f"PRAGMA table_info({table})")
-        columns_info = cursor.fetchall()
-        
-        text_cols = [c[1] for c in columns_info if "TEXT" in c[2].upper() or "VARCHAR" in c[2].upper() or "CHAR" in c[2].upper()]
+        columns_info = get_table_columns(table)
+
+        text_cols = [c["name"] for c in columns_info if is_textual_column_type(c.get("type"))]
 
         if not text_cols:
             print(f"   -> No text columns found in {table}. Skipping.")
@@ -84,15 +80,17 @@ def build_graph():
             print(f"   Profiling {table}.{col}...")
 
             try:
-                cursor.execute(f'SELECT COUNT(DISTINCT "{col}") FROM "{table}" WHERE "{col}" IS NOT NULL')
-                distinct_count = cursor.fetchone()[0]
+                distinct_count = count_distinct_non_null(table, col)
 
                 if distinct_count == 0 or distinct_count > MAX_DISTINCT_VALUES:
                     print(f"      -> Skipping (Count: {distinct_count})")
                     continue
 
-                cursor.execute(f'SELECT DISTINCT "{col}" FROM "{table}" WHERE "{col}" IS NOT NULL LIMIT {MAX_DISTINCT_VALUES}')
-                values = [row[0] for row in cursor.fetchall() if isinstance(row[0], str) and row[0].strip()]
+                values = [
+                    value
+                    for value in fetch_distinct_non_null_values(table, col, MAX_DISTINCT_VALUES)
+                    if isinstance(value, str) and value.strip()
+                ]
 
                 # Setup batch arrays for ChromaDB insertion
                 batch_docs = []
@@ -140,8 +138,6 @@ def build_graph():
 
             except Exception as e:
                 print(f"      [!] Error profiling {table}.{col}: {e}")
-
-    conn.close()
     
     # Clean up the deprecated json file
     json_path = os.path.join(BASE_DIR, "vlkg.json")

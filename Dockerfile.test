@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────
+# SPTS Test Image  (self-contained, no external mounts needed
+# for the database or vector store)
+# ─────────────────────────────────────────────────────────
+FROM python:3.11-slim
+
+# Prevent .pyc files; keep stdout unbuffered; skip pip cache
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# ── System deps ──────────────────────────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ── Python deps ──────────────────────────────────────────
+COPY requirements.docker.txt .
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r requirements.docker.txt
+
+# ── Application code ─────────────────────────────────────
+COPY backend  ./backend
+COPY frontend ./frontend
+COPY kg       ./kg
+
+# ── Bake in the read-only dataset (no volume needed) ─────
+COPY data/bird_mini_dev.sqlite ./data/bird_mini_dev.sqlite
+
+# ── Seed script (creates a fresh users.sqlite + tester account) ──
+COPY seed_test_user.py .
+RUN python seed_test_user.py
+
+# ── Ensure the sessions output directory exists ───────────
+RUN mkdir -p /app/sessions
+
+# ── Default env (testers override API_KEY via .env.test) ──
+ENV SPTS_MAIN_DB_PATH=data/bird_mini_dev.sqlite \
+    SPTS_USERS_DB_PATH=data/users.sqlite \
+    SPTS_CHROMA_PATH=kg/chroma_db \
+    SECRET_KEY=spts-test-secret-key-2024
+
+EXPOSE 8000
+
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]

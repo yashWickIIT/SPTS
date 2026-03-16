@@ -4,7 +4,10 @@ import bcrypt
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from db_users import get_user_by_username
+try:
+    from .db_users import get_user_by_username
+except ImportError:
+    from db_users import get_user_by_username
 
 # Secret key to encode the JWT token
 # In a real app, this should be in an environment variable securely stored

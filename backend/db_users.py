@@ -1,7 +1,10 @@
 import sqlite3
 import os
 
-from config import get_env_path
+try:
+    from .config import get_env_path
+except ImportError:
+    from config import get_env_path
 
 # Separate DB for users to avoid messing with the main dataset db
 USERS_DB_PATH = get_env_path("SPTS_USERS_DB_PATH", os.path.join("data", "users.sqlite"))

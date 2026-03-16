@@ -1,17 +1,32 @@
-import sqlite3
 import os
 import sys
 import uuid
 import chromadb
 from groq import Groq
 
-# Add the backend directory to sys.path to access the embedding utility
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(BASE_DIR, "..", "backend"))
-from embedding_util import get_embeddings_batch
-from config import get_env_path
+try:
+    # Package import path (used when loaded via backend.app)
+    from backend.embedding_util import get_embeddings_batch
+    from backend.config import get_env_path
+    from backend.db_client import (
+        fetch_distinct_non_null_values,
+        get_table_columns,
+        is_textual_column_type,
+        list_user_tables,
+    )
+except ImportError:
+    # Standalone script path (python update_vlkg.py)
+    sys.path.insert(0, os.path.abspath(os.path.join(BASE_DIR, "..", "backend")))
+    from embedding_util import get_embeddings_batch
+    from config import get_env_path
+    from db_client import (
+        fetch_distinct_non_null_values,
+        get_table_columns,
+        is_textual_column_type,
+        list_user_tables,
+    )
 
-DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
 CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 
 API_KEY = os.getenv("API_KEY")
@@ -45,10 +60,6 @@ def generate_synonyms(value, column_context):
         return []
 
 def delta_update():
-    if not os.path.exists(DB_PATH):
-        print(f"Error: Database not found at {DB_PATH}")
-        return
-
     print("Initializing ChromaDB for Delta Update...")
     chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
     
@@ -73,19 +84,14 @@ def delta_update():
                 
     print(f"-> Found {len(processed_signatures)} unique semantic records already in Vector DB.")
 
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = [r[0] for r in cursor.fetchall() if r[0] != 'sqlite_sequence']
+    tables = list_user_tables()
 
     total_new_values_added = 0
 
     for table in tables:
-        cursor.execute(f"PRAGMA table_info({table})")
-        columns_info = cursor.fetchall()
-        
-        text_cols = [c[1] for c in columns_info if "TEXT" in c[2].upper() or "VARCHAR" in c[2].upper() or "CHAR" in c[2].upper()]
+        columns_info = get_table_columns(table)
+
+        text_cols = [c["name"] for c in columns_info if is_textual_column_type(c.get("type"))]
 
         for col in text_cols:
             if any(keyword in col.lower() for keyword in SKIP_KEYWORDS):
@@ -93,8 +99,11 @@ def delta_update():
 
             try:
                 # Fetch distinct values from the live database
-                cursor.execute(f'SELECT DISTINCT "{col}" FROM "{table}" WHERE "{col}" IS NOT NULL LIMIT {MAX_DISTINCT_VALUES}')
-                current_values = [row[0] for row in cursor.fetchall() if isinstance(row[0], str) and row[0].strip()]
+                current_values = [
+                    value
+                    for value in fetch_distinct_non_null_values(table, col, MAX_DISTINCT_VALUES)
+                    if isinstance(value, str) and value.strip()
+                ]
 
                 # 2. Delta Comparison: Filter out values we've already profiled
                 new_values = []
@@ -148,7 +157,6 @@ def delta_update():
             except Exception as e:
                 print(f"      [!] Error processing delta for {table}.{col}: {e}")
 
-    conn.close()
     print(f"\n✅ Delta Update Complete! Embedded and appended {total_new_values_added} new unique database values.")
 
 if __name__ == "__main__":
