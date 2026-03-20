@@ -6,3 +6,5 @@ __pycache__/
 *.pyo
 *.pyd
 vlkg.json
+.bin
+chroma_db
