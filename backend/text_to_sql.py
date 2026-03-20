@@ -1,8 +1,8 @@
-import os
 import time
 
 from groq import Groq
 try:
+    from .config import API_KEY
     from .db_client import (
         get_main_dialect_name,
         get_table_columns,
@@ -10,14 +10,30 @@ try:
         list_user_tables,
     )
 except ImportError:
+    from config import API_KEY
     from db_client import (
-    get_main_dialect_name,
-    get_table_columns,
-    get_table_foreign_keys,
-    list_user_tables,
+        get_main_dialect_name,
+        get_table_columns,
+        get_table_foreign_keys,
+        list_user_tables,
     )
 
-client = Groq(api_key=os.getenv("API_KEY"))
+_groq_client = None
+
+
+def _get_groq_client():
+    global _groq_client
+    if _groq_client is not None:
+        return _groq_client
+
+    if not API_KEY:
+        return None
+
+    try:
+        _groq_client = Groq(api_key=API_KEY)
+        return _groq_client
+    except Exception:
+        return None
 
 def get_schema_summary():
     schema_str = ""
@@ -46,6 +62,18 @@ def get_schema_summary():
     return schema_str
 
 def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
+    client = _get_groq_client()
+    if client is None:
+        return {
+            "sql": "SELECT * FROM error; -- API Error: Missing API_KEY/GROQ_API_KEY",
+            "rationale": {
+                "system_prompt": "",
+                "injected_context": "",
+                "latency_ms": 0,
+                "token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            }
+        }
+
     schema_context = get_schema_summary()
     sql_dialect = get_main_dialect_name()
 
@@ -120,6 +148,10 @@ def spts_text_to_sql(user_query, mappings=None):
     return generate_sql_with_llm(user_query, mode="SPTS", mappings=mappings)
 
 def fix_sql_with_llm(user_query, bad_sql, error_message, mappings=None):
+    client = _get_groq_client()
+    if client is None:
+        return "SELECT * FROM error; -- API Error: Missing API_KEY/GROQ_API_KEY"
+
     schema_context = get_schema_summary()
     sql_dialect = get_main_dialect_name()
 

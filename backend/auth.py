@@ -1,17 +1,14 @@
-from datetime import datetime, timedelta
-import os
+from datetime import datetime, timedelta, timezone
 import bcrypt
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 try:
     from .db_users import get_user_by_username
+    from .config import SECRET_KEY
 except ImportError:
     from db_users import get_user_by_username
-
-# Secret key to encode the JWT token
-# In a real app, this should be in an environment variable securely stored
-SECRET_KEY = os.environ.get("SECRET_KEY", "spts-super-secret-key-12345")
+    from config import SECRET_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days for convenience
 
@@ -28,14 +25,14 @@ def get_password_hash(password):
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -53,3 +50,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     if user is None:
         raise credentials_exception
     return user
+
+
+def require_roles(*allowed_roles: str):
+    normalized_allowed = {role.strip().lower() for role in allowed_roles if role and role.strip()}
+
+    def _role_checker(current_user: dict = Depends(get_current_user)):
+        user_role = str(current_user.get("role", "")).strip().lower()
+        if normalized_allowed and user_role not in normalized_allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient role permissions",
+            )
+        return current_user
+
+    return _role_checker

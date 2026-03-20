@@ -1,12 +1,13 @@
-import os
 import hashlib
 import math
 import threading
 
 from fastembed import TextEmbedding
 
-DEFAULT_EMBEDDING_MODEL = os.getenv("SPTS_EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-FALLBACK_EMBEDDING_DIM = int(os.getenv("SPTS_FALLBACK_EMBEDDING_DIM", "384"))
+try:
+    from .config import EMBEDDING_MODEL, FALLBACK_EMBEDDING_DIM
+except ImportError:
+    from config import EMBEDDING_MODEL, FALLBACK_EMBEDDING_DIM
 
 _model = None
 _model_error = None
@@ -29,14 +30,14 @@ def _load_model():
             return None
 
         try:
-            print(f"Loading Embedding Model ({DEFAULT_EMBEDDING_MODEL})...")
-            _model = TextEmbedding(model_name=DEFAULT_EMBEDDING_MODEL)
+            print(f"Loading Embedding Model ({EMBEDDING_MODEL})...")
+            _model = TextEmbedding(model_name=EMBEDDING_MODEL)
             print("Model loaded successfully!")
         except Exception as exc:
             _model_error = exc
             print(
                 "Warning: could not load fastembed model "
-                f"'{DEFAULT_EMBEDDING_MODEL}'. Falling back to deterministic local embeddings. "
+                f"'{EMBEDDING_MODEL}'. Falling back to deterministic local embeddings. "
                 f"Reason: {exc}"
             )
 

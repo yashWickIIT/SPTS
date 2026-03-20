@@ -8,5 +8,5 @@ services:
       # Session files land here so testers can share them with you
       - ./sessions:/app/sessions
     env_file:
-      - .env.test             # testers put their API_KEY here
+      - .env
     restart: unless-stopped

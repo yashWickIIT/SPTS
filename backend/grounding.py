@@ -5,7 +5,7 @@ import chromadb
 from groq import Groq
 try:
     from .embedding_util import get_embedding
-    from .config import get_env_path
+    from .config import CHROMA_PATH, API_KEY
     from .db_client import (
         get_main_dialect_name,
         list_user_tables,
@@ -15,7 +15,7 @@ try:
     )
 except ImportError:
     from embedding_util import get_embedding
-    from config import get_env_path
+    from config import CHROMA_PATH, API_KEY
     from db_client import (
         get_main_dialect_name,
         list_user_tables,
@@ -23,8 +23,6 @@ except ImportError:
         table_has_column,
         value_exists_in_column,
     )
-
-CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 
 print("Initializing ChromaDB connection in grounding...")
 chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
@@ -78,7 +76,23 @@ def _mapping_id(entity: str, canonical: str, table: str, column: str) -> str:
 
 _connect_collection()
 
-client = Groq(api_key=os.getenv("API_KEY"))
+_groq_client = None
+
+
+def _get_groq_client():
+    global _groq_client
+    if _groq_client is not None:
+        return _groq_client
+
+    if not API_KEY:
+        return None
+
+    try:
+        _groq_client = Groq(api_key=API_KEY)
+        return _groq_client
+    except Exception as e:
+        print(f"Warning: failed to initialize Groq client in grounding: {e}")
+        return None
 
 def get_mini_schema():
     """Fetches a lightweight schema for the fallback LLM."""
@@ -90,6 +104,10 @@ def get_mini_schema():
     return schema_str
 
 def extract_entities(query: str):
+    client = _get_groq_client()
+    if client is None:
+        return []
+
     prompt = f"""
     Extract the key specific entities, names, locations, or categorical values from the following user query. 
     Ignore general words like 'how many', 'show me', 'count', 'database'.
@@ -109,6 +127,10 @@ def extract_entities(query: str):
 
 def lightweight_fallback_search(entity: str):
     """Uses a fast, lightweight model to guess the canonical value if vector search fails."""
+    client = _get_groq_client()
+    if client is None:
+        return None, None, None
+
     schema = get_mini_schema()
     prompt = f"""
     You are a database mapping assistant. The user searched for the noisy entity: "{entity}".

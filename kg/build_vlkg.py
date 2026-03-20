@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 try:
     # Package import path (used when loaded via backend modules)
     from backend.embedding_util import get_embeddings_batch
-    from backend.config import get_env_path
+    from backend.config import CHROMA_PATH, API_KEY
     from backend.db_client import (
         count_distinct_non_null,
         fetch_distinct_non_null_values,
@@ -20,7 +20,7 @@ except ImportError:
     # Standalone script path (python build_vlkg.py)
     sys.path.insert(0, os.path.abspath(os.path.join(BASE_DIR, "..", "backend")))
     from embedding_util import get_embeddings_batch
-    from config import get_env_path
+    from config import CHROMA_PATH, API_KEY
     from db_client import (
         count_distinct_non_null,
         fetch_distinct_non_null_values,
@@ -29,11 +29,7 @@ except ImportError:
         list_user_tables,
     )
 
-# 2. Define where the Vector DB will be saved locally
-CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
-
-API_KEY = os.getenv("API_KEY")
-client = Groq(api_key=API_KEY)
+client = Groq(api_key=API_KEY) if API_KEY else None
 
 MAX_DISTINCT_VALUES = 100
 
