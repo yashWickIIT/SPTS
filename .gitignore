@@ -1,6 +1,6 @@
 venv
 data
-.env.**
+.env
 __pycache__/
 *.pyc
 *.pyo
