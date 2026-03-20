@@ -4,18 +4,30 @@ import uuid
 import chromadb
 from groq import Groq
 
-# 1. Add the backend directory to sys.path to import the embedding utility
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(BASE_DIR, "..", "backend"))
-from embedding_util import get_embeddings_batch
-from config import get_env_path
-from db_client import (
-    count_distinct_non_null,
-    fetch_distinct_non_null_values,
-    get_table_columns,
-    is_textual_column_type,
-    list_user_tables,
-)
+try:
+    # Package import path (used when loaded via backend modules)
+    from backend.embedding_util import get_embeddings_batch
+    from backend.config import get_env_path
+    from backend.db_client import (
+        count_distinct_non_null,
+        fetch_distinct_non_null_values,
+        get_table_columns,
+        is_textual_column_type,
+        list_user_tables,
+    )
+except ImportError:
+    # Standalone script path (python build_vlkg.py)
+    sys.path.insert(0, os.path.abspath(os.path.join(BASE_DIR, "..", "backend")))
+    from embedding_util import get_embeddings_batch
+    from config import get_env_path
+    from db_client import (
+        count_distinct_non_null,
+        fetch_distinct_non_null_values,
+        get_table_columns,
+        is_textual_column_type,
+        list_user_tables,
+    )
 
 # 2. Define where the Vector DB will be saved locally
 CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))

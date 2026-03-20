@@ -7,7 +7,7 @@ openpyxl
 groq
 python-dotenv
 sqlalchemy
-sentence-transformers
+fastembed
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart

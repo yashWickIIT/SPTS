@@ -6,11 +6,23 @@ from groq import Groq
 try:
     from .embedding_util import get_embedding
     from .config import get_env_path
-    from .db_client import get_main_dialect_name, list_user_tables, get_table_columns
+    from .db_client import (
+        get_main_dialect_name,
+        list_user_tables,
+        get_table_columns,
+        table_has_column,
+        value_exists_in_column,
+    )
 except ImportError:
     from embedding_util import get_embedding
     from config import get_env_path
-    from db_client import get_main_dialect_name, list_user_tables, get_table_columns
+    from db_client import (
+        get_main_dialect_name,
+        list_user_tables,
+        get_table_columns,
+        table_has_column,
+        value_exists_in_column,
+    )
 
 CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 
@@ -47,6 +59,21 @@ def _bootstrap_collection_if_missing():
         return False
 
     return _connect_collection()
+
+
+def ensure_vlkg_ready():
+    return _bootstrap_collection_if_missing()
+
+
+def _norm_text(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _mapping_id(entity: str, canonical: str, table: str, column: str) -> str:
+    seed = f"{entity.lower()}|{canonical.lower()}|{table.lower()}|{column.lower()}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
 
 
 _connect_collection()
@@ -111,6 +138,7 @@ def ground_query(query: str):
 
     applied_mappings = []
     entities = extract_entities(query)
+    known_tables = set(list_user_tables())
     
     for entity in entities:
         if len(entity) < 2:
@@ -142,6 +170,24 @@ def ground_query(query: str):
             canonical, table, column = lightweight_fallback_search(entity)
             
             if canonical and table and column:
+                canonical = _norm_text(canonical)
+                table = _norm_text(table)
+                column = _norm_text(column)
+
+                if table not in known_tables:
+                    print(f"Skipped fallback mapping for '{entity}': unknown table '{table}'.")
+                    continue
+
+                if not table_has_column(table, column):
+                    print(f"Skipped fallback mapping for '{entity}': unknown column '{table}.{column}'.")
+                    continue
+
+                if not value_exists_in_column(table, column, canonical):
+                    print(
+                        f"Skipped fallback mapping for '{entity}': value '{canonical}' not found in {table}.{column}."
+                    )
+                    continue
+
                 # 1. Use the value for the current query
                 applied_mappings.append({
                     "original": entity,
@@ -152,11 +198,11 @@ def ground_query(query: str):
                     "type": "Real-time LLM Fallback"
                 })
                 # 2. Update the Vector DB dynamically so it doesn't need the LLM next time
-                collection.add(
+                collection.upsert(
                     documents=[entity],
                     embeddings=[query_embedding],
                     metadatas=[{"canonical": canonical, "table": table, "column": column}],
-                    ids=[str(uuid.uuid4())]
+                    ids=[_mapping_id(entity, canonical, table, column)]
                 )
                 print(f"Dynamically updated VLKG with new mapping: {entity} -> {canonical}")
                 

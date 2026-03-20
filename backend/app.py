@@ -24,6 +24,12 @@ scheduler = BackgroundScheduler()
 @app.on_event("startup")
 def start_scheduler():
     """Starts the background task to run delta_update during off-peak hours."""
+    vlkg_ready = grounding.ensure_vlkg_ready()
+    if vlkg_ready:
+        print("VLKG ready at startup.")
+    else:
+        print("Warning: VLKG is not ready at startup. Grounding may be unavailable until bootstrap succeeds.")
+
     # Schedule to run every day at 2:00 AM
     scheduler.add_job(delta_update, CronTrigger(hour=2, minute=0))
     scheduler.start()

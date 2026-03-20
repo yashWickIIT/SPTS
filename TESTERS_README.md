@@ -101,6 +101,7 @@ docker compose -f docker-compose.test.yml down
 |---|---|
 | Port 8000 already in use | Stop any other app on port 8000, or change `"8000:8000"` to `"8001:8000"` in `docker-compose.test.yml` |
 | `API_KEY` error at startup | Check `.env.test` — make sure there are no extra spaces or quotes |
+| `Temporary failure in name resolution` on startup | Pull the latest image again (`docker pull yashwick/spts-test:latest`) and restart compose; this usually indicates temporary DNS/network issues on the tester machine |
 | Docker not found | Make sure Docker Desktop is running (check the system tray) |
 | Page won't load | Wait a few more seconds for startup; the ML models take ~30s to initialise |
 

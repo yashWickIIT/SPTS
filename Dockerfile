@@ -5,6 +5,7 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
+ENV SPTS_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -16,7 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy runtime requirements and install CPU-only ML stack
 COPY requirements.docker.txt .
-RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.docker.txt
+RUN pip install -r requirements.docker.txt
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='${SPTS_EMBEDDING_MODEL}')"
 
 # Copy only runtime application code
 COPY backend ./backend
