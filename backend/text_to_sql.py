@@ -82,6 +82,9 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
     RULES:
     1. Always use parenthesis for aggregation functions, e.g., COUNT(*).
     2. Do not explain your answer. Just output the SQL.
+    3. Never invent literal filter values (e.g., city/county/year/status names) that are not explicitly present in the question.
+    4. If the question asks for global totals/averages (e.g., "across all", "in the database", no specific entity), do not add WHERE filters.
+    5. In SPTS mode, use mapping hints only when they correspond to explicit user-mentioned entities; otherwise ignore them.
     """.format(sql_dialect=sql_dialect)
 
     user_prompt = f"Schema:\n{schema_context}\nQuestion: {user_query}"
@@ -90,7 +93,7 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
 
     if mode == "SPTS":
         injected_context_str = "DATABASE HINTS:\n"
-        user_prompt += "\n\nDATABASE HINTS (Use these canonical values for exact matching in your WHERE clauses):"
+        user_prompt += "\n\nDATABASE HINTS (Use these only for explicit entities in the question; do NOT add extra constraints):"
         if mappings and len(mappings) > 0:
             for mapping in mappings:
                 hint = f"- The user's term '{mapping['original']}' maps to the exact database value '{mapping['grounded']}' in the `{mapping['table']}.{mapping['column']}` column."

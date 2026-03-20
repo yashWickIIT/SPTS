@@ -1,3 +1,17 @@
+function _applyUserTag(username, role) {
+  const tag = document.getElementById('userTag');
+  const nameEl = document.getElementById('usernameLabel');
+  const badgeEl = document.getElementById('roleBadge');
+  const avatarEl = document.getElementById('userAvatar');
+  if (!tag || !nameEl || !badgeEl) return;
+  const safeRole = (role || 'analyst').toLowerCase();
+  const safeName = username || '';
+  if (nameEl) nameEl.textContent = safeName;
+  if (avatarEl) avatarEl.textContent = safeName.charAt(0) || '?';
+  if (badgeEl) { badgeEl.textContent = safeRole; badgeEl.className = `role-pill badge-role-${safeRole}`; }
+  tag.style.display = 'flex';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('spts_token');
   if (!token) {
@@ -6,10 +20,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const role = localStorage.getItem('spts_role');
+  const username = localStorage.getItem('spts_username');
   const adminBtn = document.getElementById('adminBtn');
   if (adminBtn && role === 'admin') {
     adminBtn.style.display = 'inline-block';
   }
+  // Show tag immediately from localStorage while /me loads
+  if (username || role) _applyUserTag(username, role);
 
   try {
     const response = await fetch('/me', {
@@ -23,11 +40,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (response.ok) {
       const me = await response.json();
-      localStorage.setItem('spts_role', me.role || role || 'analyst');
-      localStorage.setItem('spts_username', me.username || localStorage.getItem('spts_username') || '');
-      if (adminBtn && (me.role || '').toLowerCase() === 'admin') {
+      const freshRole = me.role || role || 'analyst';
+      const freshUsername = me.username || username || '';
+      localStorage.setItem('spts_role', freshRole);
+      localStorage.setItem('spts_username', freshUsername);
+      if (adminBtn && freshRole.toLowerCase() === 'admin') {
         adminBtn.style.display = 'inline-block';
       }
+      _applyUserTag(freshUsername, freshRole);
     }
   } catch (error) {
     console.warn('Failed to refresh user profile from /me:', error);

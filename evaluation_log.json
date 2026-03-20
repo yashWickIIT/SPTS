@@ -1,0 +1,674 @@
+[
+    {
+        "question": "How many schools are in the database?",
+        "gold_sql": "SELECT COUNT(*) FROM schools",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 330.67,
+            "token_usage": {
+                "prompt_tokens": 821,
+                "completion_tokens": 8,
+                "total_tokens": 829
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 210.56,
+            "token_usage": {
+                "prompt_tokens": 855,
+                "completion_tokens": 8,
+                "total_tokens": 863
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools have an Active status?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE StatusType = 'Active'",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Active'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 222.46,
+            "token_usage": {
+                "prompt_tokens": 821,
+                "completion_tokens": 15,
+                "total_tokens": 836
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Active'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 265.73,
+            "token_usage": {
+                "prompt_tokens": 855,
+                "completion_tokens": 15,
+                "total_tokens": 870
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools have a Closed status?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE StatusType = 'Closed'",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Closed'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 230.53,
+            "token_usage": {
+                "prompt_tokens": 821,
+                "completion_tokens": 15,
+                "total_tokens": 836
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Closed'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 243.36,
+            "token_usage": {
+                "prompt_tokens": 855,
+                "completion_tokens": 15,
+                "total_tokens": 870
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools are in Alameda county?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Alameda'",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Alameda'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 252.4,
+            "token_usage": {
+                "prompt_tokens": 822,
+                "completion_tokens": 15,
+                "total_tokens": 837
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Alameda'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 191.65,
+            "token_usage": {
+                "prompt_tokens": 872,
+                "completion_tokens": 15,
+                "total_tokens": 887
+            },
+            "mappings": [
+                {
+                    "original": "Alameda county",
+                    "grounded": "Alameda",
+                    "table": "schools",
+                    "column": "County",
+                    "distance": 0.0,
+                    "type": "Real-time LLM Fallback"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools are in Amador county?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Amador'",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Amador'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 293.96,
+            "token_usage": {
+                "prompt_tokens": 822,
+                "completion_tokens": 15,
+                "total_tokens": 837
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Amador'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 350.21,
+            "token_usage": {
+                "prompt_tokens": 872,
+                "completion_tokens": 15,
+                "total_tokens": 887
+            },
+            "mappings": [
+                {
+                    "original": "Amador county",
+                    "grounded": "Amador",
+                    "table": "schools",
+                    "column": "County",
+                    "distance": 0.0,
+                    "type": "Real-time LLM Fallback"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools are in Butte county?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Butte'",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Butte'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 401.44,
+            "token_usage": {
+                "prompt_tokens": 822,
+                "completion_tokens": 15,
+                "total_tokens": 837
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Butte'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 302.38,
+            "token_usage": {
+                "prompt_tokens": 856,
+                "completion_tokens": 15,
+                "total_tokens": 871
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "What is the average math SAT score across all schools?",
+        "gold_sql": "SELECT AVG(AvgScrMath) FROM satscores",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (AVG(AvgScrMath)) FROM satscores",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 216.44,
+            "token_usage": {
+                "prompt_tokens": 824,
+                "completion_tokens": 14,
+                "total_tokens": 838
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (AVG(AvgScrMath)) FROM satscores",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 184.03,
+            "token_usage": {
+                "prompt_tokens": 858,
+                "completion_tokens": 14,
+                "total_tokens": 872
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "What is the average reading SAT score across all schools?",
+        "gold_sql": "SELECT AVG(AvgScrRead) FROM satscores",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (AVG(AvgScrRead)) FROM satscores",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 211.52,
+            "token_usage": {
+                "prompt_tokens": 824,
+                "completion_tokens": 14,
+                "total_tokens": 838
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (AVG(AvgScrRead)) FROM satscores",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 216.98,
+            "token_usage": {
+                "prompt_tokens": 858,
+                "completion_tokens": 14,
+                "total_tokens": 872
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools have an average math SAT score above 500?",
+        "gold_sql": "SELECT COUNT(*) FROM satscores WHERE AvgScrMath > 500",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM satscores \nWHERE AvgScrMath > 500",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 270.94,
+            "token_usage": {
+                "prompt_tokens": 826,
+                "completion_tokens": 19,
+                "total_tokens": 845
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM satscores WHERE AvgScrMath > 500",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 224.36,
+            "token_usage": {
+                "prompt_tokens": 877,
+                "completion_tokens": 17,
+                "total_tokens": 894
+            },
+            "mappings": [
+                {
+                    "original": "500",
+                    "grounded": "500",
+                    "table": "satscores",
+                    "column": "AvgScrRead",
+                    "distance": 0.0,
+                    "type": "Real-time LLM Fallback"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "Which school has the highest average SAT reading score?",
+        "gold_sql": "SELECT sname FROM satscores ORDER BY AvgScrRead DESC LIMIT 1",
+        "difficulty": "simple",
+        "baseline": {
+            "generated_sql": "SELECT sname FROM satscores ORDER BY (AvgScrRead) DESC LIMIT 1",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 166.41,
+            "token_usage": {
+                "prompt_tokens": 823,
+                "completion_tokens": 19,
+                "total_tokens": 842
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT sname FROM satscores ORDER BY (AvgScrRead) DESC LIMIT 1",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 250.22,
+            "token_usage": {
+                "prompt_tokens": 857,
+                "completion_tokens": 19,
+                "total_tokens": 876
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "Which 5 counties have the most schools?",
+        "gold_sql": "SELECT County, COUNT(*) AS cnt FROM schools GROUP BY County ORDER BY cnt DESC LIMIT 5",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT County, COUNT(*) \nFROM schools \nGROUP BY County \nORDER BY COUNT(*) DESC \nLIMIT 5",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 194.46,
+            "token_usage": {
+                "prompt_tokens": 822,
+                "completion_tokens": 23,
+                "total_tokens": 845
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT County, COUNT(CDSCode) \nFROM schools \nGROUP BY County \nORDER BY COUNT(CDSCode) DESC \nLIMIT 5",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 392.62,
+            "token_usage": {
+                "prompt_tokens": 856,
+                "completion_tokens": 29,
+                "total_tokens": 885
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "What is the average FRPM eligibility rate for the 2014-2015 academic year?",
+        "gold_sql": "SELECT AVG(CAST([Percent (%) Eligible FRPM (K-12)] AS REAL)) FROM frpm WHERE [Academic Year] = '2014-2015'",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT (AVG(`Percent (%) Eligible FRPM (K-12)`) + AVG(`Percent (%) Eligible FRPM (Ages 5-17)`)) / 2 \nFROM frpm \nWHERE `Academic Year` = '2014-15'",
+            "valid": true,
+            "accurate": false,
+            "latency_ms": 479.07,
+            "token_usage": {
+                "prompt_tokens": 832,
+                "completion_tokens": 58,
+                "total_tokens": 890
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (AVG(`Percent (%) Eligible FRPM (K-12)`) ) FROM frpm WHERE `Academic Year` = '2014-2015'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 409.75,
+            "token_usage": {
+                "prompt_tokens": 866,
+                "completion_tokens": 36,
+                "total_tokens": 902
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "How many FRPM records are there for Alameda county in the 2014-2015 academic year?",
+        "gold_sql": "SELECT COUNT(*) FROM frpm WHERE [County Name] = 'Alameda' AND [Academic Year] = '2014-2015'",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE County Name = 'Alameda' \nAND Academic Year = '2014-2015'",
+            "valid": false,
+            "accurate": false,
+            "latency_ms": 224.55,
+            "token_usage": {
+                "prompt_tokens": 835,
+                "completion_tokens": 31,
+                "total_tokens": 866
+            },
+            "error": "(sqlite3.OperationalError) near \"Name\": syntax error\n[SQL: SELECT (COUNT(*)) \nFROM frpm \nWHERE County Name = 'Alameda' \nAND Academic Year = '2014-2015']\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE `County Name` = 'Alameda' \nAND `Academic Year` = '2014-2015'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 245.74,
+            "token_usage": {
+                "prompt_tokens": 885,
+                "completion_tokens": 31,
+                "total_tokens": 916
+            },
+            "mappings": [
+                {
+                    "original": "Alameda county",
+                    "grounded": "Alameda",
+                    "table": "schools",
+                    "column": "County",
+                    "distance": 0.0,
+                    "type": "Vector Semantic Match"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools in LA county are active?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Los Angeles' AND StatusType = 'Active'",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'LA' AND StatusType = 'Active'",
+            "valid": true,
+            "accurate": false,
+            "latency_ms": 270.03,
+            "token_usage": {
+                "prompt_tokens": 822,
+                "completion_tokens": 23,
+                "total_tokens": 845
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'Los Angeles' AND StatusType = 'Active'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 273.38,
+            "token_usage": {
+                "prompt_tokens": 870,
+                "completion_tokens": 24,
+                "total_tokens": 894
+            },
+            "mappings": [
+                {
+                    "original": "LA county",
+                    "grounded": "Los Angeles",
+                    "table": "schools",
+                    "column": "City",
+                    "distance": 0.3643,
+                    "type": "Vector Semantic Match"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools are in the Los Angeles Unified school district?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE District = 'Los Angeles Unified'",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE District = 'Los Angeles Unified'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 1275.41,
+            "token_usage": {
+                "prompt_tokens": 825,
+                "completion_tokens": 18,
+                "total_tokens": 843
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) FROM schools WHERE District = 'Los Angeles Unified'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 216.06,
+            "token_usage": {
+                "prompt_tokens": 878,
+                "completion_tokens": 16,
+                "total_tokens": 894
+            },
+            "mappings": [
+                {
+                    "original": "Los Angeles Unified school district",
+                    "grounded": "Los Angeles Unified",
+                    "table": "schools",
+                    "column": "District",
+                    "distance": 0.0,
+                    "type": "Real-time LLM Fallback"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "What is the total number of students enrolled in grade 12 across all SAT schools?",
+        "gold_sql": "SELECT SUM(enroll12) FROM satscores",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT (SUM(enroll12)) FROM satscores",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 188.93,
+            "token_usage": {
+                "prompt_tokens": 830,
+                "completion_tokens": 12,
+                "total_tokens": 842
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE `High Grade` = '12'",
+            "valid": true,
+            "accurate": false,
+            "latency_ms": 318.79,
+            "token_usage": {
+                "prompt_tokens": 880,
+                "completion_tokens": 18,
+                "total_tokens": 898
+            },
+            "mappings": [
+                {
+                    "original": "grade 12",
+                    "grounded": "12",
+                    "table": "frpm",
+                    "column": "High Grade",
+                    "distance": 0.0,
+                    "type": "Real-time LLM Fallback"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "List the names of all school districts in Alameda county.",
+        "gold_sql": "SELECT DISTINCT District FROM schools WHERE County = 'Alameda' ORDER BY District",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT District FROM frpm WHERE County Name = 'Alameda' GROUP BY District",
+            "valid": false,
+            "accurate": false,
+            "latency_ms": 541.7,
+            "token_usage": {
+                "prompt_tokens": 825,
+                "completion_tokens": 17,
+                "total_tokens": 842
+            },
+            "error": "(sqlite3.OperationalError) near \"Name\": syntax error\n[SQL: SELECT District FROM frpm WHERE County Name = 'Alameda' GROUP BY District]\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"
+        },
+        "spts": {
+            "generated_sql": "SELECT DISTINCT District FROM schools WHERE County = 'Alameda'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 261.52,
+            "token_usage": {
+                "prompt_tokens": 875,
+                "completion_tokens": 13,
+                "total_tokens": 888
+            },
+            "mappings": [
+                {
+                    "original": "Alameda county",
+                    "grounded": "Alameda",
+                    "table": "schools",
+                    "column": "County",
+                    "distance": 0.0,
+                    "type": "Vector Semantic Match"
+                }
+            ],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools in San Diego county have a Closed status?",
+        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'San Diego' AND StatusType = 'Closed'",
+        "difficulty": "moderate",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'San Diego' AND StatusType = 'Closed'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 371.17,
+            "token_usage": {
+                "prompt_tokens": 825,
+                "completion_tokens": 24,
+                "total_tokens": 849
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'San Diego' AND StatusType = 'Closed'",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 3391.35,
+            "token_usage": {
+                "prompt_tokens": 859,
+                "completion_tokens": 24,
+                "total_tokens": 883
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "Which county has the highest average SAT math score among its schools?",
+        "gold_sql": "SELECT s.County, AVG(sat.AvgScrMath) AS avg_math FROM satscores sat JOIN schools s ON sat.cds = s.CDSCode WHERE sat.AvgScrMath IS NOT NULL GROUP BY s.County ORDER BY avg_math DESC LIMIT 1",
+        "difficulty": "challenging",
+        "baseline": {
+            "generated_sql": "SELECT T1.County, AVG(T2.AvgScrMath) \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nGROUP BY T1.County \nORDER BY AVG(T2.AvgScrMath) DESC \nLIMIT (1)",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 3420.76,
+            "token_usage": {
+                "prompt_tokens": 826,
+                "completion_tokens": 66,
+                "total_tokens": 892
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT T1.cname \nFROM satscores AS T1 \nGROUP BY T1.cname \nORDER BY (AVG(T1.AvgScrMath)) DESC \nLIMIT 1",
+            "valid": true,
+            "accurate": false,
+            "latency_ms": 667.34,
+            "token_usage": {
+                "prompt_tokens": 860,
+                "completion_tokens": 39,
+                "total_tokens": 899
+            },
+            "mappings": [],
+            "error": null
+        }
+    },
+    {
+        "question": "How many schools in active status have an average SAT math score above 550?",
+        "gold_sql": "SELECT COUNT(*) FROM satscores sat JOIN schools s ON sat.cds = s.CDSCode WHERE s.StatusType = 'Active' AND sat.AvgScrMath > 550",
+        "difficulty": "challenging",
+        "baseline": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM schools \nJOIN satscores \nON schools.CDSCode = satscores.cds \nWHERE schools.StatusType = 'Active' \nAND satscores.AvgScrMath > 550",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 1429.41,
+            "token_usage": {
+                "prompt_tokens": 829,
+                "completion_tokens": 47,
+                "total_tokens": 876
+            },
+            "error": null
+        },
+        "spts": {
+            "generated_sql": "SELECT (COUNT(*)) \nFROM schools \nJOIN satscores \nON schools.CDSCode = satscores.cds \nWHERE schools.StatusType = 'Active' \nAND satscores.AvgScrMath > 550",
+            "valid": true,
+            "accurate": true,
+            "latency_ms": 324.56,
+            "token_usage": {
+                "prompt_tokens": 863,
+                "completion_tokens": 47,
+                "total_tokens": 910
+            },
+            "mappings": [],
+            "error": null
+        }
+    }
+]

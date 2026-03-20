@@ -1,0 +1,32 @@
+{
+    "dataset": "data\\bird_dev_sample.json",
+    "dataset_size": 20,
+    "metrics": {
+        "VA": {
+            "baseline": 90.0,
+            "spts": 100.0,
+            "improvement": 10.0
+        },
+        "EX": {
+            "baseline": 80.0,
+            "spts": 90.0,
+            "improvement": 10.0
+        }
+    },
+    "errors": {
+        "baseline": {
+            "Schema Error (No such table/column)": 0,
+            "Syntax Error": 2,
+            "Ambiguous Column Reference": 0,
+            "Invalid Function": 0,
+            "Execution Error (Other)": 0
+        },
+        "spts": {
+            "Schema Error (No such table/column)": 0,
+            "Syntax Error": 0,
+            "Ambiguous Column Reference": 0,
+            "Invalid Function": 0,
+            "Execution Error (Other)": 0
+        }
+    }
+}

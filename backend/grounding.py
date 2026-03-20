@@ -1,6 +1,7 @@
 import os
 import json
 import uuid
+import re
 import chromadb
 from groq import Groq
 try:
@@ -72,6 +73,62 @@ def _norm_text(value):
 def _mapping_id(entity: str, canonical: str, table: str, column: str) -> str:
     seed = f"{entity.lower()}|{canonical.lower()}|{table.lower()}|{column.lower()}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, seed))
+
+
+_GENERIC_ENTITY_TOKENS = {
+    "school", "schools", "district", "districts", "county", "city", "state",
+    "database", "data", "status", "active", "closed", "students", "student",
+    "sat", "score", "scores", "math", "reading", "average", "count", "number",
+    "record", "records", "year", "academic", "grade",
+}
+
+
+def _tokenize(value: str):
+    return re.findall(r"[a-z0-9]+", _norm_text(value).lower())
+
+
+def _is_generic_entity(entity: str) -> bool:
+    tokens = _tokenize(entity)
+    if not tokens:
+        return True
+    return all(token in _GENERIC_ENTITY_TOKENS for token in tokens)
+
+
+def _acronym_of(text: str) -> str:
+    words = re.findall(r"[A-Za-z]+", _norm_text(text))
+    return "".join(w[0].lower() for w in words if w)
+
+
+def _has_token_overlap(entity: str, canonical: str) -> bool:
+    ent_tokens = set(_tokenize(entity))
+    can_tokens = set(_tokenize(canonical))
+    if not ent_tokens or not can_tokens:
+        return False
+    return len(ent_tokens.intersection(can_tokens)) > 0
+
+
+def _is_plausible_vector_mapping(entity: str, canonical: str, distance: float) -> bool:
+    if distance > 0.45:
+        return False
+
+    if _is_generic_entity(entity):
+        return False
+
+    entity_norm = _norm_text(entity).lower()
+    canonical_norm = _norm_text(canonical).lower()
+
+    if entity_norm in canonical_norm or canonical_norm in entity_norm:
+        return True
+
+    if _has_token_overlap(entity, canonical):
+        return True
+
+    canonical_acronym = _acronym_of(canonical)
+    entity_tokens = set(_tokenize(entity))
+    if canonical_acronym and canonical_acronym in entity_tokens:
+        return True
+
+    return False
 
 
 _connect_collection()
@@ -173,14 +230,18 @@ def ground_query(query: str):
         results = collection.query(query_embeddings=[query_embedding], n_results=1)
         
         distance = results['distances'][0][0] if results['distances'] and len(results['distances'][0]) > 0 else 999
-        THRESHOLD = 1.0 
+        THRESHOLD = 0.45
         
         if distance < THRESHOLD:
             metadata = results['metadatas'][0][0]
-            if metadata['canonical'].lower() != entity.lower():
+            canonical_value = metadata['canonical']
+            if (
+                canonical_value.lower() != entity.lower()
+                and _is_plausible_vector_mapping(entity, canonical_value, distance)
+            ):
                 applied_mappings.append({
                     "original": entity,
-                    "grounded": metadata['canonical'],
+                    "grounded": canonical_value,
                     "table": metadata['table'],
                     "column": metadata['column'],
                     "distance": round(distance, 4),

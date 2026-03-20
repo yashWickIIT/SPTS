@@ -16,6 +16,7 @@ USERS_DB_PATH = os.path.join(os.path.dirname(__file__), "data", "users.sqlite")
 
 TESTER_USERNAME = "tester"
 TESTER_PASSWORD = "spts-test-2024"
+TESTER_ROLE = "researcher"  # researcher can run queries; cannot self-register admin
 
 os.makedirs(os.path.dirname(USERS_DB_PATH), exist_ok=True)
 
@@ -26,19 +27,22 @@ cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
-        hashed_password TEXT NOT NULL
+        hashed_password TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'analyst'
     )
 """)
 
-hashed = bcrypt.hashpw(TESTER_PASSWORD.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+hashed = bcrypt.hashpw(TESTER_PASSWORD.encode("utf-8"), bcrypt.gensalt()).decode(
+    "utf-8"
+)
 
 try:
     cursor.execute(
-        "INSERT INTO users (username, hashed_password) VALUES (?, ?)",
-        (TESTER_USERNAME, hashed),
+        "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",
+        (TESTER_USERNAME, hashed, TESTER_ROLE),
     )
     conn.commit()
-    print(f"[seed] Created tester account: '{TESTER_USERNAME}'")
+    print(f"[seed] Created tester account: '{TESTER_USERNAME}' (role: {TESTER_ROLE})")
 except sqlite3.IntegrityError:
     print(f"[seed] Tester account '{TESTER_USERNAME}' already exists – skipping.")
 

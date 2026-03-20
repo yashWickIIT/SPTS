@@ -18,6 +18,12 @@
             </div>
           </div>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span id="userTag" class="user-tag" style="display: none;">
+              <span id="userAvatar" class="user-tag-avatar">?</span>
+              <span id="usernameLabel" class="user-tag-name"></span>
+              <span class="user-tag-divider"></span>
+              <span id="roleBadge" class="role-pill"></span>
+            </span>
             <button id="adminBtn" onclick="goToAdmin()" style="display: none; background: none; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer;">Admin Portal</button>
             <button onclick="logout()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer;">Logout</button>
           </div>
