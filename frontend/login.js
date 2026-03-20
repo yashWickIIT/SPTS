@@ -27,7 +27,9 @@ async function login() {
     if (response.ok) {
       const data = await response.json();
       localStorage.setItem("spts_token", data.access_token);
-      window.location.href = "/static/index.html";
+      localStorage.setItem("spts_role", data.role || "analyst");
+      localStorage.setItem("spts_username", data.username || usernameInput);
+      globalThis.location.href = "/static/index.html";
     } else {
       const errorData = await response.json();
       errorMsg.textContent = errorData.detail || "Login failed. Please check your credentials.";
@@ -44,6 +46,8 @@ async function login() {
 }
 
 // Clear any existing token on load of the login page
-window.addEventListener('DOMContentLoaded', () => {
+globalThis.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem("spts_token");
+  localStorage.removeItem("spts_role");
+  localStorage.removeItem("spts_username");
 });

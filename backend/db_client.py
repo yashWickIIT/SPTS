@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from sqlalchemy import MetaData, Table, create_engine, func, inspect, select, text
+from sqlalchemy import MetaData, String, Table, create_engine, func, inspect, select, text
 
 try:
     from .config import get_main_database_url
@@ -72,3 +72,40 @@ def fetch_distinct_non_null_values(table_name: str, column_name: str, limit: int
     with get_main_engine().connect() as conn:
         rows = conn.execute(stmt).fetchall()
     return [row[0] for row in rows]
+
+
+def table_has_column(table_name: str, column_name: str) -> bool:
+    try:
+        table = _reflect_table(table_name)
+        return column_name in table.c
+    except Exception:
+        return False
+
+
+def value_exists_in_column(table_name: str, column_name: str, value: str) -> bool:
+    if value is None:
+        return False
+
+    normalized = str(value).strip()
+    if not normalized:
+        return False
+
+    try:
+        table = _reflect_table(table_name)
+        if column_name not in table.c:
+            return False
+
+        column = table.c[column_name]
+        normalized_expr = func.lower(func.trim(column.cast(String)))
+        stmt = (
+            select(func.count())
+            .select_from(table)
+            .where(column.is_not(None))
+            .where(normalized_expr == normalized.lower())
+        )
+
+        with get_main_engine().connect() as conn:
+            count = conn.execute(stmt).scalar_one()
+        return int(count or 0) > 0
+    except Exception:
+        return False

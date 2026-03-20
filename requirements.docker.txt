@@ -4,8 +4,7 @@ groq
 python-dotenv
 sqlalchemy
 chromadb
-sentence-transformers
-torch==2.5.1+cpu
+fastembed
 numpy<2
 python-jose[cryptography]
 passlib[bcrypt]

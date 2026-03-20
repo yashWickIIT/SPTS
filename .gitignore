@@ -1,8 +1,10 @@
 venv
 data
-.env.**
+.env
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 vlkg.json
+.bin
+chroma_db

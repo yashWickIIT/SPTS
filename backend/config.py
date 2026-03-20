@@ -34,3 +34,30 @@ def get_main_database_url() -> str:
         get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
     )
     return f"sqlite:///{sqlite_path.as_posix()}"
+
+
+# ============================================================================
+# Centralized environment variable exports for all backend/KG modules
+# ============================================================================
+# This is the single source of truth for all env configuration in SPTS.
+# All modules should import from this file instead of calling os.getenv() directly.
+
+
+# API Key (required for LLM features like SQL generation and grounding)
+# Checks both API_KEY and GROQ_API_KEY for backward compatibility
+API_KEY = os.getenv("API_KEY") or os.getenv("GROQ_API_KEY") or ""
+
+# JWT secret key for session tokens
+SECRET_KEY = os.getenv("SECRET_KEY") or "spts-super-secret-key-12345"
+
+# Embedding model configuration
+EMBEDDING_MODEL = os.getenv("SPTS_EMBEDDING_MODEL") or "BAAI/bge-small-en-v1.5"
+FALLBACK_EMBEDDING_DIM = int(os.getenv("SPTS_FALLBACK_EMBEDDING_DIM") or "384")
+
+# Sessions directory (where user query logs are stored)
+SESSIONS_DIR = os.getenv("SPTS_SESSIONS_DIR") or "/app/sessions"
+
+# Vector database paths
+CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
+MAIN_DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
+MAIN_DATABASE_URL = get_main_database_url()

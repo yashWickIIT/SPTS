@@ -11,7 +11,10 @@ import os
 import stat
 from datetime import datetime, timezone
 
-SESSIONS_DIR = os.environ.get("SPTS_SESSIONS_DIR", "/app/sessions")
+try:
+    from .config import SESSIONS_DIR
+except ImportError:
+    from config import SESSIONS_DIR
 
 
 def log_query(username: str, query: str, payload: dict) -> None:

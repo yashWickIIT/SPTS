@@ -8,7 +8,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 try:
     # Package import path (used when loaded via backend.app)
     from backend.embedding_util import get_embeddings_batch
-    from backend.config import get_env_path
+    from backend.config import CHROMA_PATH, API_KEY
     from backend.db_client import (
         fetch_distinct_non_null_values,
         get_table_columns,
@@ -19,7 +19,7 @@ except ImportError:
     # Standalone script path (python update_vlkg.py)
     sys.path.insert(0, os.path.abspath(os.path.join(BASE_DIR, "..", "backend")))
     from embedding_util import get_embeddings_batch
-    from config import get_env_path
+    from config import CHROMA_PATH, API_KEY
     from db_client import (
         fetch_distinct_non_null_values,
         get_table_columns,
@@ -27,16 +27,33 @@ except ImportError:
         list_user_tables,
     )
 
-CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
+_groq_client = None
 
-API_KEY = os.getenv("API_KEY")
-client = Groq(api_key=API_KEY)
+
+def _get_groq_client():
+    global _groq_client
+    if _groq_client is not None:
+        return _groq_client
+
+    if not API_KEY:
+        return None
+
+    try:
+        _groq_client = Groq(api_key=API_KEY)
+        return _groq_client
+    except Exception as e:
+        print(f"      [!] Failed to initialize Groq client: {e}")
+        return None
 
 # Settings matching your build script
 MAX_DISTINCT_VALUES = 100
 SKIP_KEYWORDS = ['id', 'code', 'url', 'zip', 'phone', 'email', 'date', 'time', 'website']
 
 def generate_synonyms(value, column_context):
+    client = _get_groq_client()
+    if client is None:
+        return []
+
     prompt = f"""
     Context: Database Column '{column_context}'.
     Value: "{value}".

@@ -7,7 +7,8 @@ FROM python:3.11-slim
 # Prevent .pyc files; keep stdout unbuffered; skip pip cache
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    SPTS_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 
 WORKDIR /app
 
@@ -18,8 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ── Python deps ──────────────────────────────────────────
 COPY requirements.docker.txt .
-RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu \
-    -r requirements.docker.txt
+RUN pip install -r requirements.docker.txt
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='${SPTS_EMBEDDING_MODEL}')"
 
 # ── Application code ─────────────────────────────────────
 COPY backend  ./backend

@@ -22,6 +22,18 @@
           <label for="password" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Password</label>
           <input type="password" id="password" placeholder="Choose a password" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; box-sizing: border-box;" />
         </div>
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label for="role" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Role</label>
+          <select id="role" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; box-sizing: border-box;">
+            <option value="analyst" selected>Analyst</option>
+            <option value="manager">Manager</option>
+            <option value="researcher">Researcher</option>
+            <option value="developer">Developer</option>
+            <option value="qa">Quality Assurance</option>
+            <option value="engineer">Engineer</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
         <button id="registerBtn" onclick="register()" style="width: 100%; margin-bottom: 1rem;">Register</button>
         <div id="error-msg" style="color: #ef4444; font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
         <div id="success-msg" style="color: #10b981; font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>

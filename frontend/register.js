@@ -1,6 +1,7 @@
 async function register() {
   const usernameInput = document.getElementById("username").value;
   const passwordInput = document.getElementById("password").value;
+  const roleInput = document.getElementById("role").value;
   const errorMsg = document.getElementById("error-msg");
   const successMsg = document.getElementById("success-msg");
   const registerBtn = document.getElementById("registerBtn");
@@ -32,6 +33,7 @@ async function register() {
       body: JSON.stringify({
         username: usernameInput,
         password: passwordInput,
+        role: roleInput,
       }),
     });
 
@@ -40,6 +42,7 @@ async function register() {
         successMsg.style.display = "block";
         document.getElementById("username").value = "";
         document.getElementById("password").value = "";
+        document.getElementById("role").value = "analyst";
     } else {
       const errorData = await response.json();
       errorMsg.textContent = errorData.detail || "Registration failed.";
