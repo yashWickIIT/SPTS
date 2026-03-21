@@ -12,6 +12,44 @@ function _applyUserTag(username, role) {
   tag.style.display = 'flex';
 }
 
+const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScssl9CpJRBKGUPADMXqc0xU-M6OvXbtNYVVj45JSzA5eNd7g/viewform?usp=sharing&ouid=108668619564928181542';
+let isFeedbackFormCollapsed = true;
+let isGoogleFormInitialized = false;
+
+function _initGoogleForm() {
+  const frame = document.getElementById('googleFormFrame');
+  const hint = document.getElementById('googleFormHint');
+  if (!frame || !hint) return;
+
+  if (!GOOGLE_FORM_URL?.startsWith('https://docs.google.com/forms/')) {
+    hint.textContent = 'Google Form is not configured yet. Set GOOGLE_FORM_URL in app.js.';
+    hint.style.color = '#ef4444';
+    frame.style.display = 'none';
+    return;
+  }
+
+  frame.src = GOOGLE_FORM_URL;
+  frame.style.display = 'block';
+  hint.textContent = 'Feedback form loaded.';
+  hint.style.color = 'var(--base)';
+}
+
+function toggleFeedbackForm() {
+  const content = document.getElementById('feedbackFormContent');
+  const button = document.getElementById('feedbackFormToggleBtn');
+  if (!content || !button) return;
+
+  isFeedbackFormCollapsed = !isFeedbackFormCollapsed;
+
+  if (!isFeedbackFormCollapsed && !isGoogleFormInitialized) {
+    _initGoogleForm();
+    isGoogleFormInitialized = true;
+  }
+
+  content.style.display = isFeedbackFormCollapsed ? 'none' : 'block';
+  button.textContent = isFeedbackFormCollapsed ? 'Expand' : 'Collapse';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const token = localStorage.getItem('spts_token');
   if (!token) {
@@ -27,6 +65,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   // Show tag immediately from localStorage while /me loads
   if (username || role) _applyUserTag(username, role);
+
+  const feedbackContent = document.getElementById('feedbackFormContent');
+  const feedbackToggleBtn = document.getElementById('feedbackFormToggleBtn');
+  if (feedbackContent) feedbackContent.style.display = 'none';
+  if (feedbackToggleBtn) feedbackToggleBtn.textContent = 'Expand';
 
   try {
     const response = await fetch('/me', {
@@ -65,9 +108,68 @@ function goToAdmin() {
   globalThis.location.href = '/static/admin.html';
 }
 
-async function runQuery() {
-  const queryInput = document.getElementById("query");
+async function downloadSessionLog() {
+  const token = localStorage.getItem('spts_token');
+  if (!token) {
+    logout();
+    return;
+  }
+
+  const btn = document.getElementById('downloadSessionBtn');
+  const originalText = btn ? btn.textContent : null;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Preparing...';
+  }
+
+  try {
+    const response = await fetch('/session-log', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (response.status === 401) {
+      logout();
+      return;
+    }
+
+    if (response.status === 404) {
+      alert('No session log yet. Run at least one query first.');
+      return;
+    }
+
+    if (!response.ok) {
+      const detail = await _getErrorDetail(response);
+      alert(`Could not download session log: ${detail}`);
+      return;
+    }
+
+    const blob = await response.blob();
+    const username = localStorage.getItem('spts_username') || 'user';
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `session_${username}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Session log download failed:', error);
+    alert('Failed to download session log. Please try again.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText || 'Download Session Log';
+    }
+  }
+}
+
+function _prepareRunUi() {
   const btn = document.getElementById("runBtn");
+  const rationaleDataBlock = document.getElementById("rationale-data");
+  const rationaleLoader = document.getElementById("rationale-loader");
+  const rationaleEmpty = document.getElementById("rationale-empty");
+  const rationaleBtn = document.getElementById("rationaleBtn");
 
   btn.disabled = true;
   btn.textContent = "Processing...";
@@ -76,17 +178,81 @@ async function runQuery() {
   document.getElementById("base-sql").textContent = "Waiting...";
   document.getElementById("spts-sql").textContent = "Waiting...";
   document.getElementById("grounding-container").style.display = "none";
-
-  // Reset Rationale Panel State before fetch
-  const rationaleDataBlock = document.getElementById("rationale-data");
-  const rationaleLoader = document.getElementById("rationale-loader");
-  const rationaleEmpty = document.getElementById("rationale-empty");
-  const rationaleBtn = document.getElementById("rationaleBtn");
+  document.getElementById("base-feedback").style.display = "none";
+  document.getElementById("spts-feedback").style.display = "none";
+  currentQueryIndex = null;
+  _resetFeedbackButtons();
 
   if (rationaleDataBlock) rationaleDataBlock.style.display = "none";
   if (rationaleEmpty) rationaleEmpty.style.display = "none";
   if (rationaleLoader) rationaleLoader.style.display = "block";
-  if (rationaleBtn) rationaleBtn.style.display = "flex"; // Show the button when loading starts
+  if (rationaleBtn) rationaleBtn.style.display = "flex";
+
+  return { btn, rationaleLoader };
+}
+
+function _restoreRunUi(btn, rationaleLoader) {
+  btn.disabled = false;
+  btn.textContent = "Run Experiment";
+  const resultsArea = document.getElementById("resultsArea");
+  resultsArea.style.opacity = "1";
+  resultsArea.style.pointerEvents = "auto";
+  if (rationaleLoader) rationaleLoader.style.display = "none";
+}
+
+async function _getErrorDetail(response) {
+  let detail = `Request failed with status ${response.status}`;
+  try {
+    const errorBody = await response.json();
+    if (errorBody && typeof errorBody.detail === 'string' && errorBody.detail.trim()) {
+      detail = errorBody.detail.trim();
+    }
+  } catch (parseErr) {
+    console.warn('Could not parse error response body:', parseErr);
+  }
+  return detail;
+}
+
+function _renderQueryUnavailable(detail) {
+  document.getElementById("base-sql").textContent = "Unavailable";
+  renderResult("base-result", [[`API Error: ${detail}`]]);
+  document.getElementById("spts-sql").textContent = "Unavailable";
+  renderResult("spts-result", [[`API Error: ${detail}`]]);
+  document.getElementById("grounding-container").style.display = "none";
+  showRationaleEmpty();
+}
+
+function _renderQuerySuccess(data) {
+  document.getElementById("base-sql").textContent = data.baseline_sql;
+  renderResult("base-result", data.baseline_result);
+
+  document.getElementById("spts-sql").textContent = data.spts_sql;
+  renderResult("spts-result", data.spts_result);
+
+  currentQueryIndex = (data.query_index !== null && data.query_index !== undefined) ? data.query_index : null;
+  if (currentQueryIndex !== null) {
+    document.getElementById("base-feedback").style.display = "flex";
+    document.getElementById("spts-feedback").style.display = "flex";
+  }
+
+  const groundingBox = document.getElementById("grounding-container");
+  if (data.mappings && data.mappings.length > 0) {
+    groundingBox.style.display = "block";
+    renderKnowledgeGraph(data.mappings);
+  } else {
+    groundingBox.style.display = "none";
+  }
+
+  if (data.spts_rationale) {
+    populateRationale(data.spts_rationale);
+  } else {
+    showRationaleEmpty();
+  }
+}
+
+async function runQuery() {
+  const queryInput = document.getElementById("query");
+  const { btn, rationaleLoader } = _prepareRunUi();
 
   try {
     const token = localStorage.getItem('spts_token');
@@ -115,60 +281,20 @@ async function runQuery() {
     }
 
     if (!response.ok) {
-      let detail = `Request failed with status ${response.status}`;
-      try {
-        const errorBody = await response.json();
-        if (errorBody && typeof errorBody.detail === 'string' && errorBody.detail.trim()) {
-          detail = errorBody.detail.trim();
-        }
-      } catch (parseErr) {
-        console.warn('Could not parse error response body:', parseErr);
-      }
-
-      document.getElementById("base-sql").textContent = "Unavailable";
-      renderResult("base-result", [[`API Error: ${detail}`]]);
-      document.getElementById("spts-sql").textContent = "Unavailable";
-      renderResult("spts-result", [[`API Error: ${detail}`]]);
-      document.getElementById("grounding-container").style.display = "none";
-      showRationaleEmpty();
+      const detail = await _getErrorDetail(response);
+      _renderQueryUnavailable(detail);
       return;
     }
 
     const data = await response.json();
-
-    document.getElementById("base-sql").textContent = data.baseline_sql;
-    renderResult("base-result", data.baseline_result);
-
-    document.getElementById("spts-sql").textContent = data.spts_sql;
-    renderResult("spts-result", data.spts_result);
-
-    const groundingBox = document.getElementById("grounding-container");
-
-    if (data.mappings && data.mappings.length > 0) {
-      groundingBox.style.display = "block";
-      renderKnowledgeGraph(data.mappings);
-    } else {
-      groundingBox.style.display = "none";
-    }
-
-    // Populate Rationale Panel (Using SPTS Rationale)
-    if (data.spts_rationale) {
-      populateRationale(data.spts_rationale);
-    } else {
-      showRationaleEmpty();
-    }
+    _renderQuerySuccess(data);
 
   } catch (err) {
     alert("Error: " + err);
     console.error(err);
     showRationaleEmpty();
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Run Experiment";
-    const resultsArea = document.getElementById("resultsArea");
-    resultsArea.style.opacity = "1";
-    resultsArea.style.pointerEvents = "auto";
-    if (rationaleLoader) rationaleLoader.style.display = "none";
+    _restoreRunUi(btn, rationaleLoader);
   }
 }
 
@@ -335,6 +461,7 @@ function renderKnowledgeGraph(mappings) {
 
 let isRationaleVisible = false;
 let currentRationaleData = null;
+let currentQueryIndex = null;
 
 function toggleRationale() {
   const panel = document.getElementById("rationale-panel");
@@ -395,4 +522,41 @@ async function copyRationale() {
     console.error("Failed to copy text: ", err);
     alert("Failed to copy to clipboard.");
   }
+}
+
+function _resetFeedbackButtons() {
+  for (const prefix of ['base', 'spts']) {
+    const pos = document.getElementById(`${prefix}-helpful`);
+    const neg = document.getElementById(`${prefix}-unhelpful`);
+    if (pos) { pos.className = 'feedback-btn feedback-btn-pos'; pos.disabled = false; }
+    if (neg) { neg.className = 'feedback-btn feedback-btn-neg'; neg.disabled = false; }
+  }
+}
+
+async function submitFeedback(model, rating) {
+  if (currentQueryIndex === null) return;
+  const token = localStorage.getItem('spts_token');
+  if (!token) return;
+
+  const payload = { query_index: currentQueryIndex };
+  if (model === 'baseline') payload.baseline_rating = rating;
+  else payload.spts_rating = rating;
+
+  try {
+    await fetch('/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.warn('Feedback submission failed:', e);
+  }
+
+  const prefix = model === 'baseline' ? 'base' : 'spts';
+  const posBtn = document.getElementById(`${prefix}-helpful`);
+  const negBtn = document.getElementById(`${prefix}-unhelpful`);
+  posBtn.className = 'feedback-btn ' + (rating === 'helpful' ? 'feedback-btn-selected' : 'feedback-btn-pos');
+  negBtn.className = 'feedback-btn ' + (rating === 'unhelpful' ? 'feedback-btn-selected' : 'feedback-btn-neg');
+  posBtn.disabled = true;
+  negBtn.disabled = true;
 }

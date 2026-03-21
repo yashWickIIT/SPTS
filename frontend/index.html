@@ -55,6 +55,12 @@
 
           <span class="label">EXECUTION RESULT</span>
           <div id="base-result" class="status status-empty">No Data</div>
+
+          <div id="base-feedback" class="feedback-row" style="display: none;">
+            <span class="feedback-label">Was this result helpful?</span>
+            <button class="feedback-btn feedback-btn-pos" id="base-helpful" onclick="submitFeedback('baseline', 'helpful')">&#128077; Helpful</button>
+            <button class="feedback-btn feedback-btn-neg" id="base-unhelpful" onclick="submitFeedback('baseline', 'unhelpful')">&#128078; Not helpful</button>
+          </div>
         </div>
 
         <div class="card" style="border-color: #22c55e; border-width: 2px; position: relative;">
@@ -79,6 +85,12 @@
 
           <span class="label">EXECUTION RESULT</span>
           <div id="spts-result" class="status status-success">Ready</div>
+
+          <div id="spts-feedback" class="feedback-row" style="display: none;">
+            <span class="feedback-label">Was this result helpful?</span>
+            <button class="feedback-btn feedback-btn-pos" id="spts-helpful" onclick="submitFeedback('spts', 'helpful')">&#128077; Helpful</button>
+            <button class="feedback-btn feedback-btn-neg" id="spts-unhelpful" onclick="submitFeedback('spts', 'unhelpful')">&#128078; Not helpful</button>
+          </div>
         </div>
       </div>
     </div>
@@ -155,6 +167,34 @@
       </div>
     </div>
 
-    <script src="/static/app.js?v=5"></script>
+    <div class="card" style="margin-top: 2rem;">
+      <div class="card-header">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <h2>Feedback Form</h2>
+          <span class="badge badge-base">Google Form</span>
+        </div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <button id="downloadSessionBtn" class="toggle-btn" onclick="downloadSessionLog()" title="Download your session log file">
+            Download Session Log
+          </button>
+          <button id="feedbackFormToggleBtn" class="toggle-btn" onclick="toggleFeedbackForm()" title="Expand or collapse feedback form">
+            Expand
+          </button>
+        </div>
+      </div>
+      <div id="feedbackFormContent" style="display: none;">
+        <div id="googleFormHint" class="subtitle" style="margin-bottom: 0.75rem; font-size: 0.8rem;">
+          Feedback form is configured in code and loaded automatically.
+        </div>
+        <iframe
+          id="googleFormFrame"
+          title="Qualitative Feedback Form"
+          style="display: none; width: 100%; min-height: 760px; border: 1px solid var(--border); border-radius: 8px;"
+          loading="lazy"
+        ></iframe>
+      </div>
+    </div>
+
+    <script src="/static/app.js?v=9"></script>
   </body>
 </html>

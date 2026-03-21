@@ -79,23 +79,18 @@ class UserCreate(BaseModel):
     role: str = "analyst"
 
 
-PUBLIC_REGISTRATION_ROLES = {"analyst", "manager", "researcher"}
-QUERY_ALLOWED_ROLES = {"admin", "developer", "analyst", "manager", "researcher"}
+QUERY_ALLOWED_ROLES = set(ALLOWED_ROLES)
 
 @app.post(
     "/register",
     responses={
         400: {"description": "Invalid role or username already registered"},
-        403: {"description": "Selected role cannot self-register"},
     },
 )
 def register(user: UserCreate):
     normalized_input_role = (user.role or "").strip().lower()
     if normalized_input_role not in ALLOWED_ROLES:
         raise HTTPException(status_code=400, detail="Invalid role")
-
-    if normalized_input_role not in PUBLIC_REGISTRATION_ROLES:
-        raise HTTPException(status_code=403, detail="Selected role cannot self-register")
 
     requested_role = normalize_role(normalized_input_role)
 
@@ -232,15 +227,73 @@ def query(payload: dict, current_user: Annotated[dict, Depends(require_roles(*QU
 
     # Log to the per-user session file (no-op if sessions dir doesn't exist)
     try:
-        session_logger.log_query(
+        query_index = session_logger.log_query(
             username=current_user["username"],
+            role=current_user.get("role", "analyst"),
             query=user_query,
             payload=response,
         )
+        response["query_index"] = query_index
     except Exception as log_err:
         print(f"[session_logger] Warning: could not write session file: {log_err}")
+        response["query_index"] = None
 
     return response
+
+
+
+class FeedbackPayload(BaseModel):
+    query_index: int
+    baseline_rating: str | None = None
+    spts_rating: str | None = None
+
+
+_VALID_RATINGS = {"helpful", "unhelpful"}
+
+
+@app.post(
+    "/feedback",
+    responses={
+        400: {"description": "Invalid rating value or no session found for this query index"},
+    },
+)
+def submit_feedback(
+    payload: FeedbackPayload,
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
+    if payload.baseline_rating is not None and payload.baseline_rating not in _VALID_RATINGS:
+        raise HTTPException(status_code=400, detail="Invalid baseline_rating value")
+    if payload.spts_rating is not None and payload.spts_rating not in _VALID_RATINGS:
+        raise HTTPException(status_code=400, detail="Invalid spts_rating value")
+    ok = session_logger.update_feedback(
+        username=current_user["username"],
+        query_index=payload.query_index,
+        baseline_rating=payload.baseline_rating,
+        spts_rating=payload.spts_rating,
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail="Could not record feedback")
+    return {"status": "ok"}
+
+
+@app.get(
+    "/session-log",
+    responses={
+        404: {"description": "No session log found for current user"},
+    },
+)
+def download_session_log(current_user: Annotated[dict, Depends(get_current_user)]):
+    username = current_user.get("username", "")
+    session_file = session_logger.get_session_file_path(username)
+
+    if not os.path.exists(session_file):
+        raise HTTPException(status_code=404, detail="No session log yet. Run at least one query first.")
+
+    return FileResponse(
+        path=session_file,
+        media_type="application/json",
+        filename=f"session_{username}.json",
+    )
 
 
 @app.get("/me")
