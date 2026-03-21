@@ -18,6 +18,7 @@ try:
     from .db_users import ALLOWED_ROLES, create_user, get_user_by_username, normalize_role
     from .auth import verify_password, get_password_hash, create_access_token, get_current_user, require_roles, ACCESS_TOKEN_EXPIRE_MINUTES
     from . import session_logger
+    from .sanitizer import sanitize_sql, SecurityViolationError
     from kg.update_vlkg import delta_update
 except ImportError:
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +32,7 @@ except ImportError:
     from db_users import ALLOWED_ROLES, create_user, get_user_by_username, normalize_role
     from auth import verify_password, get_password_hash, create_access_token, get_current_user, require_roles, ACCESS_TOKEN_EXPIRE_MINUTES
     import session_logger
+    from sanitizer import sanitize_sql, SecurityViolationError
     from kg.update_vlkg import delta_update
 
 app = FastAPI()
@@ -148,9 +150,18 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         "username": user["username"],
     }
 
+def _sanitize_or_raise(sql: str, label: str) -> str:
+    """Sanitize LLM-generated SQL; raise HTTP 400 on any security violation."""
+    try:
+        return sanitize_sql(sql)
+    except SecurityViolationError as e:
+        raise HTTPException(status_code=400, detail=f"Unsafe {label} SQL blocked: {e}")
+
+
 @app.post(
     "/query",
     responses={
+        400: {"description": "Unsafe SQL blocked by sanitizer"},
         503: {"description": "SQL generation service unavailable"},
     },
 )
@@ -173,6 +184,8 @@ def query(payload: dict, current_user: Annotated[dict, Depends(require_roles(*QU
     baseline_sql = baseline_response["sql"]
     baseline_rationale = baseline_response["rationale"]
 
+    baseline_sql = _sanitize_or_raise(baseline_sql, "baseline")
+
     baseline_api_error = extract_api_error(baseline_sql)
     if baseline_api_error:
         raise HTTPException(
@@ -184,6 +197,8 @@ def query(payload: dict, current_user: Annotated[dict, Depends(require_roles(*QU
     spts_response = spts_text_to_sql(user_query, mappings)
     spts_sql = spts_response["sql"]
     spts_rationale = spts_response["rationale"]
+
+    spts_sql = _sanitize_or_raise(spts_sql, "SPTS")
 
     spts_api_error = extract_api_error(spts_sql)
     if spts_api_error:
@@ -199,6 +214,7 @@ def query(payload: dict, current_user: Annotated[dict, Depends(require_roles(*QU
     if not spts_result["success"]:
         # fix_sql_with_llm still returns just the SQL string based on previous signature
         spts_sql = fix_sql_with_llm(user_query, spts_sql, spts_result["error"], mappings)
+        spts_sql = _sanitize_or_raise(spts_sql, "auto-corrected SPTS")
         spts_fix_api_error = extract_api_error(spts_sql)
         if spts_fix_api_error:
             raise HTTPException(
