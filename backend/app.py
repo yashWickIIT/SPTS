@@ -1,7 +1,7 @@
 import os
 import sys
 from typing import Annotated
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -10,6 +10,9 @@ from pydantic import BaseModel
 from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 try:
     from . import grounding
@@ -35,7 +38,11 @@ except ImportError:
     from sanitizer import sanitize_sql, SecurityViolationError
     from kg.update_vlkg import delta_update
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 scheduler = BackgroundScheduler()
 
@@ -162,10 +169,12 @@ def _sanitize_or_raise(sql: str, label: str) -> str:
     "/query",
     responses={
         400: {"description": "Unsafe SQL blocked by sanitizer"},
+        429: {"description": "Rate limit exceeded"},
         503: {"description": "SQL generation service unavailable"},
     },
 )
-def query(payload: dict, current_user: Annotated[dict, Depends(require_roles(*QUERY_ALLOWED_ROLES))]):
+@limiter.limit("10/minute")
+def query(request: Request, payload: dict, current_user: Annotated[dict, Depends(require_roles(*QUERY_ALLOWED_ROLES))]):
     user_query = payload["query"]
 
     def extract_api_error(sql_text: str):
