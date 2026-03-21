@@ -1,260 +1,342 @@
-"""
-evaluate.py
------------
-Automated research-ready evaluation for SPTS vs Baseline text-to-SQL.
-
-Usage:
-    python evaluate.py                          # run with defaults
-    python evaluate.py --limit 10               # quick smoke test (10 questions)
-    python evaluate.py --dataset data/my.json   # custom dataset
-    python evaluate.py --output results/        # custom output directory
-    python evaluate.py --delay 1.5              # seconds between LLM calls
-
-Outputs (in --output directory):
-    evaluation_log.json         per-question detail (SQL, results, errors)
-    final_thesis_metrics.json   thesis-ready summary metrics
-"""
-
 import argparse
 import json
 import os
+import sqlite3
 import sys
 import time
 
-# â”€â”€ Import path: works from project root (python evaluate.py) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+from metrics_calculator import compare_execution_results, evaluate_etm
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from backend.grounding import ground_query
-from backend.text_to_sql import baseline_text_to_sql, fix_sql_with_llm, spts_text_to_sql
-from backend.database import execute_sql
-from metrics_calculator import categorize_sqlite_error, compare_execution_results
-
 try:
-    from tqdm import tqdm
+    from backend.grounding import ground_query
+    from backend.text_to_sql import baseline_text_to_sql, fix_sql_with_llm, spts_text_to_sql
 except ImportError:
+    print("Error: Could not import evaluator dependencies from backend.")
+    print("Please ensure you are running this from the project root directory.")
+    exit(1)
 
-    def tqdm(iterable, desc="", total=None):
-        print(f"Starting: {desc}")
-        for i, item in enumerate(iterable, 1):
-            if i % 5 == 0 or (total and i == total):
-                print(f"  Processed {i}/{total or '?'}...")
-            yield item
-
-
-ERROR_BUCKETS = [
-    "Schema Error (No such table/column)",
-    "Syntax Error",
-    "Ambiguous Column Reference",
-    "Invalid Function",
-    "Execution Error (Other)",
-]
+API_DELAY_SECONDS = 2.0
+DEFAULT_DB_ID = "bird_mini_dev"
+DEFAULT_DATASET = os.path.join("data", "bird_dev_sample.json")
+DEFAULT_LOG = "evaluation_log.json"
+DEFAULT_METRICS = "final_thesis_metrics.json"
 
 
-def _empty_error_counts():
-    return {k: 0 for k in ERROR_BUCKETS}
+def _candidate_db_paths(db_id: str):
+    return (
+        f"{db_id}.sqlite",
+        os.path.join("data", f"{db_id}.sqlite"),
+        os.path.join(".", "data", f"{db_id}.sqlite"),
+        "bird_mini_dev.sqlite",
+        os.path.join("data", "bird_mini_dev.sqlite"),
+    )
 
 
-def evaluate(dataset_path: str, output_dir: str, limit: int | None, delay: float):
-    if not os.path.exists(dataset_path):
-        print(
-            f"\nERROR: Dataset not found at '{dataset_path}'.\n"
-            "Please provide a JSON file with question/SQL pairs using --dataset.\n"
-            "Expected format:\n"
-            '  [{"question": "How many schools?", "SQL": "SELECT COUNT(*) FROM schools"}, ...]\n'
-        )
-        sys.exit(1)
+def resolve_db_path(db_id: str) -> str | None:
+    for path in _candidate_db_paths(db_id):
+        if os.path.exists(path):
+            return path
+    return None
 
-    with open(dataset_path, encoding="utf-8") as f:
-        dataset = json.load(f)
 
-    if not dataset:
-        print("Dataset is empty.")
-        sys.exit(1)
+def execute_raw_sql(sql: str, db_id: str) -> dict:
+    if not sql or not sql.strip():
+        return {"success": False, "error": "Empty SQL query", "data": []}
 
-    if limit:
-        dataset = dataset[:limit]
+    db_path = resolve_db_path(db_id)
+    if not db_path:
+        return {"success": False, "error": f"Database {db_id}.sqlite not found.", "data": []}
 
-    os.makedirs(output_dir, exist_ok=True)
+    try:
+        uri = f"file:{os.path.abspath(db_path)}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(sql)
+            return {"success": True, "data": cursor.fetchall()}
+        finally:
+            conn.close()
+    except sqlite3.Error as error:
+        return {"success": False, "error": str(error), "data": []}
 
-    total = len(dataset)
-    results_log = []
-    base_va = base_ex = spts_va = spts_ex = 0
-    base_errors = _empty_error_counts()
-    spts_errors = _empty_error_counts()
 
-    print(f"\nRunning evaluation on {total} questions  (delay={delay}s between calls)")
-    print(f"Dataset : {dataset_path}")
-    print(f"Output  : {output_dir}\n")
+def _safe_sql_from_response(response) -> str:
+    if isinstance(response, dict):
+        return str(response.get("sql", "") or "")
+    return str(response or "")
 
-    for item in tqdm(dataset, desc="Evaluating", total=total):
-        question = item.get("question", "").strip()
-        gold_sql = item.get("SQL", "").strip()
-        if not question or not gold_sql:
-            continue
 
-        gold_res = execute_sql(gold_sql)
+def _generate_baseline_sql(question: str) -> str:
+    try:
+        return _safe_sql_from_response(baseline_text_to_sql(question))
+    except Exception as error:
+        print(f"  -> Baseline generation failed: {error}")
+        return ""
 
-        base_response = baseline_text_to_sql(question)
-        base_sql = base_response["sql"]
-        base_res = execute_sql(base_sql)
-        base_valid = base_res.get("success", False)
-        base_accurate = compare_execution_results(gold_res, base_res)
 
-        if base_valid:
-            base_va += 1
-        else:
-            cat = categorize_sqlite_error(base_res.get("error"))
-            base_errors[cat] = base_errors.get(cat, 0) + 1
-
-        if base_accurate:
-            base_ex += 1
-
-        time.sleep(delay)
-
-        # â”€â”€ SPTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+def _generate_spts_sql(question: str) -> tuple[str, list[dict]]:
+    mappings = []
+    try:
         _, mappings = ground_query(question)
-        spts_response = spts_text_to_sql(question, mappings=mappings)
-        spts_sql = spts_response["sql"]
-        spts_res = execute_sql(spts_sql)
+        sql = _safe_sql_from_response(spts_text_to_sql(question, mappings=mappings))
+        return sql, mappings
+    except Exception as error:
+        print(f"  -> SPTS generation failed: {error}")
+        return "", mappings
 
-        # One auto-correction pass (mirrors production /query behaviour)
-        if not spts_res.get("success", False):
-            error_msg = spts_res.get("error", "Unknown error")
-            fixed_sql = fix_sql_with_llm(
-                question, spts_sql, error_msg, mappings=mappings
-            )
-            if "-- API Error:" not in fixed_sql:
-                spts_sql = fixed_sql
-                spts_res = execute_sql(spts_sql)
 
-        spts_valid = spts_res.get("success", False)
-        spts_accurate = compare_execution_results(gold_res, spts_res)
+def _auto_correct_spts(
+    question: str,
+    sql: str,
+    result: dict,
+    mappings: list[dict],
+    db_id: str,
+) -> tuple[str, dict]:
+    if result.get("success"):
+        return sql, result
+    try:
+        fixed_sql = fix_sql_with_llm(question, sql, result.get("error", "Unknown error"), mappings=mappings)
+    except Exception as error:
+        print(f"  -> SPTS auto-correction failed: {error}")
+        return sql, result
 
-        if spts_valid:
-            spts_va += 1
-        else:
-            cat = categorize_sqlite_error(spts_res.get("error"))
-            spts_errors[cat] = spts_errors.get(cat, 0) + 1
+    if not fixed_sql or "-- API Error:" in fixed_sql:
+        return sql, result
 
-        if spts_accurate:
-            spts_ex += 1
+    fixed_result = execute_raw_sql(fixed_sql, db_id)
+    return fixed_sql, fixed_result
 
-        time.sleep(delay)
 
-        results_log.append(
-            {
-                "question": question,
-                "gold_sql": gold_sql,
-                "difficulty": item.get("difficulty", "unknown"),
-                "baseline": {
-                    "generated_sql": base_sql,
-                    "valid": base_valid,
-                    "accurate": base_accurate,
-                    "latency_ms": base_response["rationale"].get("latency_ms"),
-                    "token_usage": base_response["rationale"].get("token_usage"),
-                    "error": base_res.get("error") if not base_valid else None,
-                },
-                "spts": {
-                    "generated_sql": spts_sql,
-                    "valid": spts_valid,
-                    "accurate": spts_accurate,
-                    "latency_ms": spts_response["rationale"].get("latency_ms"),
-                    "token_usage": spts_response["rationale"].get("token_usage"),
-                    "mappings": mappings,
-                    "error": spts_res.get("error") if not spts_valid else None,
-                },
-            }
-        )
+def _evaluate_prediction(gold_result: dict, gold_sql: str, predicted_sql: str, db_id: str) -> tuple[dict, dict]:
+    pred_result = execute_raw_sql(predicted_sql, db_id)
+    etm = evaluate_etm(gold_sql, predicted_sql)
+    metrics = {
+        "execution_accuracy": compare_execution_results(gold_result, pred_result),
+        "etm_exact_match": etm["is_exact_match"],
+        "etm_f1_score": round(etm["f1_score"], 4),
+    }
+    return pred_result, metrics
 
-    base_va_rate = (base_va / total) * 100
-    base_ex_rate = (base_ex / total) * 100
-    spts_va_rate = (spts_va / total) * 100
-    spts_ex_rate = (spts_ex / total) * 100
 
-    metrics_payload = {
-        "dataset": dataset_path,
-        "dataset_size": total,
-        "metrics": {
-            "VA": {
-                "baseline": round(base_va_rate, 2),
-                "spts": round(spts_va_rate, 2),
-                "improvement": round(spts_va_rate - base_va_rate, 2),
+def _empty_summary() -> dict:
+    return {
+        "exe_correct": 0,
+        "etm_exact": 0,
+        "etm_f1_total": 0.0,
+        "scored_queries": 0,
+        "api_error_queries": 0,
+    }
+
+
+def _update_summary(summary: dict, metrics: dict):
+    summary["exe_correct"] += int(metrics["execution_accuracy"])
+    summary["etm_exact"] += int(metrics["etm_exact_match"])
+    summary["etm_f1_total"] += metrics["etm_f1_score"]
+    summary["scored_queries"] += 1
+
+
+def _percentage(value: float, total: int) -> float:
+    return round((value / total) * 100, 2) if total else 0.0
+
+
+def _finalize_summary(summary: dict) -> dict:
+    scored_queries = summary["scored_queries"]
+    return {
+        "Execution_Accuracy_EXE": _percentage(summary["exe_correct"], scored_queries),
+        "Execution_Accuracy_EXE_Count": summary["exe_correct"],
+        "Enhanced_Tree_Matching_ETM_Exact": _percentage(summary["etm_exact"], scored_queries),
+        "Enhanced_Tree_Matching_ETM_Exact_Count": summary["etm_exact"],
+        "Average_Structural_F1_Score": _percentage(summary["etm_f1_total"], scored_queries),
+        "Average_Structural_F1_Score_Sum": round(summary["etm_f1_total"], 4),
+        "Scored_Queries": scored_queries,
+        "API_Error_Queries": summary["api_error_queries"],
+    }
+
+
+def _extract_api_error(sql_text: str) -> str | None:
+    marker = "-- API Error:"
+    if not isinstance(sql_text, str) or marker not in sql_text:
+        return None
+    return sql_text.split(marker, 1)[1].strip() or "LLM API unavailable"
+
+
+def _improvement_block(baseline: dict, spts: dict) -> dict:
+    return {
+        "Execution_Accuracy_EXE": round(spts["Execution_Accuracy_EXE"] - baseline["Execution_Accuracy_EXE"], 2),
+        "Enhanced_Tree_Matching_ETM_Exact": round(spts["Enhanced_Tree_Matching_ETM_Exact"] - baseline["Enhanced_Tree_Matching_ETM_Exact"], 2),
+        "Average_Structural_F1_Score": round(spts["Average_Structural_F1_Score"] - baseline["Average_Structural_F1_Score"], 2),
+    }
+
+
+def _build_log_entry(
+    query_id: int,
+    question: str,
+    db_id: str,
+    gold_sql: str,
+    baseline_sql: str,
+    baseline_result: dict,
+    baseline_metrics: dict,
+    spts_sql: str,
+    spts_result: dict,
+    spts_metrics: dict,
+    mappings: list[dict],
+) -> dict:
+    return {
+        "query_id": query_id,
+        "question": question,
+        "db_id": db_id,
+        "gold_sql": gold_sql,
+        "baseline": {
+            "predicted_sql": baseline_sql,
+            "execution_result": {
+                "pred_success": baseline_result.get("success"),
+                "pred_error": baseline_result.get("error"),
             },
-            "EX": {
-                "baseline": round(base_ex_rate, 2),
-                "spts": round(spts_ex_rate, 2),
-                "improvement": round(spts_ex_rate - base_ex_rate, 2),
-            },
+            "metrics": baseline_metrics,
         },
-        "errors": {
-            "baseline": base_errors,
-            "spts": spts_errors,
+        "spts": {
+            "predicted_sql": spts_sql,
+            "execution_result": {
+                "pred_success": spts_result.get("success"),
+                "pred_error": spts_result.get("error"),
+            },
+            "metrics": spts_metrics,
+            "mappings": mappings,
         },
     }
 
-    log_path = os.path.join(output_dir, "evaluation_log.json")
-    metrics_path = os.path.join(output_dir, "final_thesis_metrics.json")
 
-    with open(log_path, "w", encoding="utf-8") as f:
-        json.dump(results_log, f, indent=4, ensure_ascii=False)
+def load_dataset(test_data_path: str) -> list[dict]:
+    with open(test_data_path, "r", encoding="utf-8") as file:
+        return json.load(file)
 
-    with open(metrics_path, "w", encoding="utf-8") as f:
-        json.dump(metrics_payload, f, indent=4, ensure_ascii=False)
 
-    w = 80
-    print("\n" + "=" * w)
-    print(f"  SPTS THESIS EVALUATION  (N={total})")
-    print("=" * w)
-    print(f"  {'Metric':<32} {'Baseline':>10}   {'SPTS':>10}   {'Delta':>10}")
-    print("  " + "-" * (w - 2))
-    print(
-        f"  {'Valid SQL Rate (VA)':<32} {base_va_rate:>9.2f}%  {spts_va_rate:>9.2f}%  {spts_va_rate - base_va_rate:>+9.2f}%"
-    )
-    print(
-        f"  {'Execution Accuracy (EX)':<32} {base_ex_rate:>9.2f}%  {spts_ex_rate:>9.2f}%  {spts_ex_rate - base_ex_rate:>+9.2f}%"
-    )
-    print()
-    print(
-        f"  {'Error Category':<32} {'Baseline':>10}   {'SPTS':>10}   {'Reduction':>10}"
-    )
-    print("  " + "-" * (w - 2))
-    for cat in ERROR_BUCKETS:
-        b = base_errors.get(cat, 0)
-        s = spts_errors.get(cat, 0)
-        print(f"  {cat:<32} {b:>10}   {s:>10}   {b - s:>+10}")
-    print("=" * w)
-    print(f"\n  Logs  -> {log_path}")
-    print(f"  Metrics -> {metrics_path}\n")
+def run_evaluation(
+    test_data_path: str,
+    output_log_path: str,
+    final_metrics_path: str,
+    delay_seconds: float = API_DELAY_SECONDS,
+):
+    print(f"Loading test dataset from {test_data_path}...")
+    try:
+        test_queries = load_dataset(test_data_path)
+    except FileNotFoundError:
+        print(f"Error: {test_data_path} not found. Please ensure the file exists.")
+        return
+
+    evaluation_logs = []
+    total_queries = len(test_queries)
+    baseline_summary = _empty_summary()
+    spts_summary = _empty_summary()
+
+    print(f"Starting evaluation of {total_queries} queries...\n")
+
+    for index, item in enumerate(test_queries, start=1):
+        question = item.get("question", "")
+        gold_sql = item.get("SQL", "")
+        db_id = item.get("db_id", DEFAULT_DB_ID)
+
+        print(f"Processing [{index}/{total_queries}]: {question[:50]}...")
+
+        gold_result = execute_raw_sql(gold_sql, db_id)
+
+        baseline_sql = _generate_baseline_sql(question)
+        baseline_api_error = _extract_api_error(baseline_sql)
+        if baseline_api_error:
+            baseline_result = {"success": False, "error": baseline_api_error}
+            baseline_metrics = {
+                "execution_accuracy": False,
+                "etm_exact_match": False,
+                "etm_f1_score": 0.0,
+                "api_error": True,
+            }
+            baseline_summary["api_error_queries"] += 1
+        else:
+            baseline_result, baseline_metrics = _evaluate_prediction(gold_result, gold_sql, baseline_sql, db_id)
+            baseline_metrics["api_error"] = False
+            _update_summary(baseline_summary, baseline_metrics)
+
+        if delay_seconds:
+            time.sleep(delay_seconds)
+
+        spts_sql, mappings = _generate_spts_sql(question)
+        spts_result, spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, db_id)
+        spts_sql, spts_result = _auto_correct_spts(question, spts_sql, spts_result, mappings, db_id)
+
+        spts_api_error = _extract_api_error(spts_sql)
+        if spts_api_error:
+            spts_result = {"success": False, "error": spts_api_error}
+            spts_metrics = {
+                "execution_accuracy": False,
+                "etm_exact_match": False,
+                "etm_f1_score": 0.0,
+                "api_error": True,
+            }
+            spts_summary["api_error_queries"] += 1
+        else:
+            spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, db_id)[1]
+            spts_metrics["api_error"] = False
+            _update_summary(spts_summary, spts_metrics)
+
+        evaluation_logs.append(
+            _build_log_entry(
+                query_id=index,
+                question=question,
+                db_id=db_id,
+                gold_sql=gold_sql,
+                baseline_sql=baseline_sql,
+                baseline_result=baseline_result,
+                baseline_metrics=baseline_metrics,
+                spts_sql=spts_sql,
+                spts_result=spts_result,
+                spts_metrics=spts_metrics,
+                mappings=mappings,
+            )
+        )
+
+        if index < total_queries and delay_seconds:
+            time.sleep(delay_seconds)
+
+    with open(output_log_path, "w", encoding="utf-8") as file:
+        json.dump(evaluation_logs, file, indent=4)
+
+    baseline_metrics = _finalize_summary(baseline_summary)
+    spts_metrics = _finalize_summary(spts_summary)
+    final_metrics = {
+        "Total_Queries_Tested": total_queries,
+        "Baseline": baseline_metrics,
+        "SPTS": spts_metrics,
+        "Improvement_SPTS_minus_Baseline": _improvement_block(baseline_metrics, spts_metrics),
+    }
+
+    with open(final_metrics_path, "w", encoding="utf-8") as file:
+        json.dump(final_metrics, file, indent=4)
+
+    print("\nEvaluation Complete!")
+    print(f"  Baseline EXE: {final_metrics['Baseline']['Execution_Accuracy_EXE']}% ({final_metrics['Baseline']['Execution_Accuracy_EXE_Count']}/{final_metrics['Baseline']['Scored_Queries']})")
+    print(f"  Baseline ETM: {final_metrics['Baseline']['Enhanced_Tree_Matching_ETM_Exact']}% ({final_metrics['Baseline']['Enhanced_Tree_Matching_ETM_Exact_Count']}/{final_metrics['Baseline']['Scored_Queries']})")
+    print(f"  Baseline F1:  {final_metrics['Baseline']['Average_Structural_F1_Score']}%")
+    print(f"  SPTS EXE:     {final_metrics['SPTS']['Execution_Accuracy_EXE']}% ({final_metrics['SPTS']['Execution_Accuracy_EXE_Count']}/{final_metrics['SPTS']['Scored_Queries']})")
+    print(f"  SPTS ETM:     {final_metrics['SPTS']['Enhanced_Tree_Matching_ETM_Exact']}% ({final_metrics['SPTS']['Enhanced_Tree_Matching_ETM_Exact_Count']}/{final_metrics['SPTS']['Scored_Queries']})")
+    print(f"  SPTS F1:      {final_metrics['SPTS']['Average_Structural_F1_Score']}%")
+    print(f"  Delta EXE:    {final_metrics['Improvement_SPTS_minus_Baseline']['Execution_Accuracy_EXE']}%")
+    print(f"  Delta ETM:    {final_metrics['Improvement_SPTS_minus_Baseline']['Enhanced_Tree_Matching_ETM_Exact']}%")
+    print(f"  Delta F1:     {final_metrics['Improvement_SPTS_minus_Baseline']['Average_Structural_F1_Score']}%")
+    print(f"  Baseline API errors: {final_metrics['Baseline']['API_Error_Queries']}")
+    print(f"  SPTS API errors:     {final_metrics['SPTS']['API_Error_Queries']}")
+    print(f"Logs saved to {output_log_path} and {final_metrics_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Run SPTS automated evaluation against a gold SQL dataset."
-    )
-    parser.add_argument(
-        "--dataset",
-        default=os.path.join("data", "bird_dev_sample.json"),
-        help="Path to evaluation dataset JSON (default: data/bird_dev_sample.json)",
-    )
-    parser.add_argument(
-        "--output",
-        default=".",
-        help="Directory to write evaluation_log.json and final_thesis_metrics.json (default: project root)",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=None,
-        help="Max questions to evaluate (omit for full dataset)",
-    )
-    parser.add_argument(
-        "--delay",
-        type=float,
-        default=2.0,
-        help="Seconds to sleep between LLM calls to avoid rate limiting (default: 2.0)",
-    )
+    parser = argparse.ArgumentParser(description="Run baseline vs SPTS evaluation with EXE and ETM metrics.")
+    parser.add_argument("--dataset", default=DEFAULT_DATASET, help="Path to the evaluation dataset JSON.")
+    parser.add_argument("--log", default=DEFAULT_LOG, help="Path to write per-query evaluation logs.")
+    parser.add_argument("--metrics", default=DEFAULT_METRICS, help="Path to write summary metrics JSON.")
+    parser.add_argument("--delay", type=float, default=API_DELAY_SECONDS, help="Delay between LLM calls in seconds.")
     args = parser.parse_args()
-    evaluate(args.dataset, args.output, args.limit, args.delay)
+    run_evaluation(args.dataset, args.log, args.metrics, args.delay)
 
 
 if __name__ == "__main__":

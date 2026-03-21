@@ -12,3 +12,4 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
 apscheduler
+sqlglot>=23.0.0
