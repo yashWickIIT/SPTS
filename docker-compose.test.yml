@@ -5,7 +5,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Session files land here so testers can share them with you
       - ./sessions:/app/sessions
     env_file:
       - .env
