@@ -12,42 +12,36 @@ function _applyUserTag(username, role) {
   tag.style.display = 'flex';
 }
 
-const GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLScssl9CpJRBKGUPADMXqc0xU-M6OvXbtNYVVj45JSzA5eNd7g/viewform?usp=sharing&ouid=108668619564928181542';
-let isFeedbackFormCollapsed = true;
+const GOOGLE_FORM_URL = 'https://forms.gle/h1EBnwWBxag1znNX8';
 let isGoogleFormInitialized = false;
+
+function _syncRunButtonState() {
+  const runBtn = document.getElementById('runBtn');
+  const queryInput = document.getElementById('query');
+  if (!runBtn || !queryInput) return;
+  runBtn.disabled = !queryInput.value.trim();
+}
 
 function _initGoogleForm() {
   const frame = document.getElementById('googleFormFrame');
   const hint = document.getElementById('googleFormHint');
-  if (!frame || !hint) return;
+  const openLink = document.getElementById('googleFormOpenLink');
+  if (!frame || !hint || !openLink) return;
 
-  if (!GOOGLE_FORM_URL?.startsWith('https://docs.google.com/forms/')) {
+  if (!GOOGLE_FORM_URL?.startsWith('https://forms.gle/')) {
     hint.textContent = 'Google Form is not configured yet. Set GOOGLE_FORM_URL in app.js.';
     hint.style.color = '#ef4444';
     frame.style.display = 'none';
+    openLink.style.display = 'none';
     return;
   }
 
-  frame.src = GOOGLE_FORM_URL;
-  frame.style.display = 'block';
-  hint.textContent = 'Feedback form loaded.';
+  openLink.href = GOOGLE_FORM_URL;
+
+  hint.textContent = 'This form includes file upload, so it must be opened directly in Google Forms.';
   hint.style.color = 'var(--base)';
-}
-
-function toggleFeedbackForm() {
-  const content = document.getElementById('feedbackFormContent');
-  const button = document.getElementById('feedbackFormToggleBtn');
-  if (!content || !button) return;
-
-  isFeedbackFormCollapsed = !isFeedbackFormCollapsed;
-
-  if (!isFeedbackFormCollapsed && !isGoogleFormInitialized) {
-    _initGoogleForm();
-    isGoogleFormInitialized = true;
-  }
-
-  content.style.display = isFeedbackFormCollapsed ? 'none' : 'block';
-  button.textContent = isFeedbackFormCollapsed ? 'Expand' : 'Collapse';
+  frame.style.display = 'none';
+  openLink.style.display = 'inline-flex';
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -66,10 +60,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Show tag immediately from localStorage while /me loads
   if (username || role) _applyUserTag(username, role);
 
-  const feedbackContent = document.getElementById('feedbackFormContent');
-  const feedbackToggleBtn = document.getElementById('feedbackFormToggleBtn');
-  if (feedbackContent) feedbackContent.style.display = 'none';
-  if (feedbackToggleBtn) feedbackToggleBtn.textContent = 'Expand';
+  if (!isGoogleFormInitialized) {
+    _initGoogleForm();
+    isGoogleFormInitialized = true;
+  }
+
+  const queryInput = document.getElementById('query');
+  if (queryInput) {
+    queryInput.addEventListener('input', _syncRunButtonState);
+  }
+  _syncRunButtonState();
 
   try {
     const response = await fetch('/me', {
@@ -192,12 +192,12 @@ function _prepareRunUi() {
 }
 
 function _restoreRunUi(btn, rationaleLoader) {
-  btn.disabled = false;
   btn.textContent = "Run Experiment";
   const resultsArea = document.getElementById("resultsArea");
   resultsArea.style.opacity = "1";
   resultsArea.style.pointerEvents = "auto";
   if (rationaleLoader) rationaleLoader.style.display = "none";
+  _syncRunButtonState();
 }
 
 async function _getErrorDetail(response) {
@@ -252,6 +252,10 @@ function _renderQuerySuccess(data) {
 
 async function runQuery() {
   const queryInput = document.getElementById("query");
+  if (!queryInput?.value?.trim()) {
+    _syncRunButtonState();
+    return;
+  }
   const { btn, rationaleLoader } = _prepareRunUi();
 
   try {
@@ -521,6 +525,25 @@ async function copyRationale() {
   } catch (err) {
     console.error("Failed to copy text: ", err);
     alert("Failed to copy to clipboard.");
+  }
+}
+
+async function copySptsSql() {
+  const sptsSqlEl = document.getElementById('spts-sql');
+  if (!sptsSqlEl) return;
+
+  const sqlText = sptsSqlEl.textContent?.trim() || '';
+  if (!sqlText || sqlText === 'Waiting for input...' || sqlText === 'Waiting...' || sqlText === 'Unavailable') {
+    alert('No generated SQL to copy yet.');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(sqlText);
+    alert('Copied SPTS SQL to clipboard!');
+  } catch (err) {
+    console.error('Failed to copy SPTS SQL:', err);
+    alert('Failed to copy SQL to clipboard.');
   }
 }
 

@@ -80,7 +80,12 @@
             <div id="kg-network" style="height: 250px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc; margin-top: 0.5rem;"></div>
           </div>
 
-          <span class="label">GENERATED SQL</span>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+            <span class="label">GENERATED SQL</span>
+            <button id="copySptsSqlBtn" class="icon-btn" onclick="copySptsSql()" title="Copy generated SQL" style="border: 1px solid var(--border); padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
           <div class="sql-block" id="spts-sql">Waiting for input...</div>
 
           <span class="label">EXECUTION RESULT</span>
@@ -169,23 +174,27 @@
 
     <div class="card" style="margin-top: 2rem;">
       <div class="card-header">
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <h2>Feedback Form</h2>
-          <span class="badge badge-base">Google Form</span>
-        </div>
+        <h2 style="margin: 0;">Feedback Form</h2>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
           <button id="downloadSessionBtn" class="toggle-btn" onclick="downloadSessionLog()" title="Download your session log file">
             Download Session Log
           </button>
-          <button id="feedbackFormToggleBtn" class="toggle-btn" onclick="toggleFeedbackForm()" title="Expand or collapse feedback form">
-            Expand
-          </button>
         </div>
       </div>
-      <div id="feedbackFormContent" style="display: none;">
+      <div id="feedbackFormContent" style="display: block;">
         <div id="googleFormHint" class="subtitle" style="margin-bottom: 0.75rem; font-size: 0.8rem;">
           Feedback form is configured in code and loaded automatically.
         </div>
+        <a
+          id="googleFormOpenLink"
+          class="toggle-btn"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+          style="display: none; width: fit-content; margin-bottom: 0.75rem; text-decoration: none;"
+        >
+          Open Feedback Form in Google
+        </a>
         <iframe
           id="googleFormFrame"
           title="Qualitative Feedback Form"
@@ -195,6 +204,6 @@
       </div>
     </div>
 
-    <script src="/static/app.js?v=9"></script>
+    <script src="/static/app.js?v=10"></script>
   </body>
 </html>
