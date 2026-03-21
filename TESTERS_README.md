@@ -71,17 +71,25 @@ Type natural-language questions into the query box and submit them. For example:
 
 ---
 
-### 6 — Share your session file
+### 6 — Download your session file
 
-After running your queries, a file will appear in the `sessions/` folder next to this guide:
+After running your queries, click **Download Session Log** in the app.
+
+This downloads a file named like:
 
 ```
-sessions/session_tester.json
+session_tester.json
 ```
 
-**Please send this file back** — it contains your queries and both system outputs (baseline vs SPTS), which is the data needed for evaluation.
+If you click download before running a query, the app will prompt you to run at least one query first.
 
-> ⚠️ The file is read-only — do not try to edit it. Just attach it to an email or message.
+### 7 — Upload to Google Form
+
+Open the feedback form section in the app and submit your responses.
+
+When asked for the session log, upload the downloaded `session_<username>.json` file.
+
+> ⚠️ Do not edit the JSON file. Upload it as-is.
 
 ---
 
