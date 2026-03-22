@@ -9,6 +9,83 @@ function backToApp() {
   globalThis.location.href = '/static/index.html';
 }
 
+function _setVlkgStatusView(status, fallbackError) {
+  const statusMsg = document.getElementById('vlkg-status-msg');
+  const collectionEl = document.getElementById('vlkg-collection');
+  const countEl = document.getElementById('vlkg-count');
+  const pathEl = document.getElementById('vlkg-path');
+  const errorEl = document.getElementById('vlkg-error');
+
+  if (!statusMsg || !collectionEl || !countEl || !pathEl || !errorEl) {
+    return;
+  }
+
+  if (!status) {
+    statusMsg.textContent = 'Unavailable';
+    collectionEl.textContent = '-';
+    countEl.textContent = '-';
+    pathEl.textContent = '-';
+    errorEl.textContent = fallbackError || 'unknown';
+    return;
+  }
+
+  const ready = Boolean(status.collection_ready);
+  statusMsg.textContent = ready ? 'Ready' : 'Not Ready';
+  collectionEl.textContent = status.collection_name || 'spts_vlkg';
+  countEl.textContent = String(status.mapping_count ?? 0);
+  pathEl.textContent = status.chroma_path || '-';
+  errorEl.textContent = status.error || 'none';
+}
+
+async function refreshVlkgStatus() {
+  const refreshBtn = document.getElementById('refreshVlkgBtn');
+  const token = localStorage.getItem('spts_token');
+
+  if (!token) {
+    logout();
+    return;
+  }
+
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = 'Refreshing...';
+  }
+
+  try {
+    const response = await fetch('/admin/vlkg-status', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 401) {
+      logout();
+      return;
+    }
+
+    if (response.status === 403) {
+      _setVlkgStatusView(null, 'admin access required');
+      return;
+    }
+
+    if (!response.ok) {
+      _setVlkgStatusView(null, `request failed (${response.status})`);
+      return;
+    }
+
+    const payload = await response.json();
+    _setVlkgStatusView(payload, null);
+  } catch (error) {
+    console.error('VLKG status refresh failed:', error);
+    _setVlkgStatusView(null, 'unexpected error');
+  } finally {
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = 'Refresh';
+    }
+  }
+}
+
 async function ensureAdmin() {
   const token = localStorage.getItem('spts_token');
   const role = (localStorage.getItem('spts_role') || '').toLowerCase();
@@ -121,5 +198,8 @@ globalThis.addEventListener('DOMContentLoaded', async () => {
   if (!allowed) {
     alert('Admin access required.');
     globalThis.location.href = '/static/index.html';
+    return;
   }
+
+  await refreshVlkgStatus();
 });

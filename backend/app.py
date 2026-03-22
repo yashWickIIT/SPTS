@@ -114,7 +114,7 @@ async def read_root():
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=64)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=4, max_length=128)
     role: str = "analyst"
 
 
@@ -173,6 +173,20 @@ def admin_register(
         "role": requested_role,
         "created_by": "admin",
     }
+
+
+@app.get(
+    "/admin/vlkg-status",
+    responses={
+        403: {"description": "Insufficient role permissions"},
+    },
+)
+@limiter.limit("20/minute")
+def admin_vlkg_status(
+    request: Request,
+    _: Annotated[dict, Depends(require_roles("admin"))],
+):
+    return grounding.get_vlkg_status()
 
 @app.post("/token")
 @limiter.limit("5/minute")
