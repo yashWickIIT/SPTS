@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SPTS Admin Portal</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png" />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -12,6 +13,18 @@
         <h1>Admin Portal</h1>
         <div class="subtitle">Create privileged users via /admin/register</div>
       </header>
+
+      <div class="card" style="margin-bottom: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+          <h2 style="margin: 0; font-size: 1rem;">Vector DB Monitor</h2>
+          <button id="refreshVlkgBtn" onclick="refreshVlkgStatus()" style="background:none; color:var(--text); border:1px solid var(--border);">Refresh</button>
+        </div>
+        <div id="vlkg-status-msg" class="subtitle" style="margin-bottom: 0.5rem;">Loading...</div>
+        <div class="subtitle" style="margin-bottom: 0.25rem;">Collection: <strong id="vlkg-collection">-</strong></div>
+        <div class="subtitle" style="margin-bottom: 0.25rem;">Mappings: <strong id="vlkg-count">-</strong></div>
+        <div class="subtitle" style="margin-bottom: 0.25rem;">Storage Path: <strong id="vlkg-path">-</strong></div>
+        <div class="subtitle" style="margin-bottom: 0;">Error: <strong id="vlkg-error">none</strong></div>
+      </div>
 
       <div class="card">
         <div class="form-group" style="margin-bottom: 1rem;">
