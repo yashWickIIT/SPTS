@@ -1,0 +1,11 @@
+﻿Starting security smoke tests against http://127.0.0.1:8000
+[PASS] Register test user - status=400
+[PASS] Get auth token - status=200
+[PASS] SQL injection resilience - status=400, status=400
+[FAIL] Rate limit /query - 
+statuses=401,401,401,401,401,401,401,401,401,401,401,401,401,401,401
+[PASS] Rate limit /token - statuses=401,401,401,401,429,429,429,429
+[PASS] Request size limit - status=413
+
+Summary: 5 passed, 1 failed
+Security smoke test completed with failures.

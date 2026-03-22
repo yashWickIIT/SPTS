@@ -16,6 +16,22 @@ body {
     margin: 0;
     padding: 0;
     line-height: 1.6;
+    position: relative;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url('/static/S.png') center center / 420px auto no-repeat;
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.container, header, .card, .search-box, #resultsArea, #rationale-panel, #feedback-form-section {
+    position: relative;
+    z-index: 1;
 }
 
 .container {

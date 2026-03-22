@@ -1,9 +1,70 @@
 import sqlglot
 from sqlglot import exp
 
+
+DESTRUCTIVE_KEYWORDS = (
+    "DELETE", "DROP", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE",
+    "ATTACH", "DETACH", "PRAGMA", "REINDEX", "VACUUM",
+)
+
 class SecurityViolationError(Exception):
     """Custom exception raised when destructive SQL is detected."""
     pass
+
+
+def _count_statements(sql_query: str) -> int:
+    return len([segment.strip() for segment in sql_query.split(";") if segment.strip()])
+
+
+def _reject_obvious_destructive_sql(sql_query: str) -> None:
+    sql_upper = sql_query.strip().upper()
+    if _count_statements(sql_query) > 1:
+        raise SecurityViolationError("Stacked multiple queries are strictly prohibited.")
+
+    for keyword in DESTRUCTIVE_KEYWORDS:
+        if sql_upper.startswith(keyword) or f"; {keyword}" in sql_upper:
+            raise SecurityViolationError(
+                f"Destructive operation ({keyword}) is not permitted. Only SELECT queries allowed."
+            )
+
+
+def _get_allowed_root(ast):
+    if hasattr(exp, "With") and isinstance(ast, exp.With):
+        return ast.this
+    return ast
+
+
+def _get_forbidden_nodes() -> tuple[type, ...]:
+    node_names = [
+        "Delete", "Drop", "Update", "Insert", "Create",
+        "Command", "Transaction", "Merge", "AlterColumn", "Alter",
+        "Attach", "Pragma",
+    ]
+    nodes = []
+    for name in node_names:
+        node = getattr(exp, name, None)
+        if node is not None:
+            nodes.append(node)
+    return tuple(nodes)
+
+
+def _validate_ast(statements) -> str:
+    if not statements or len(statements) != 1:
+        raise SecurityViolationError("Exactly one SQL statement is required.")
+
+    root = _get_allowed_root(statements[0])
+    allowed_roots = (exp.Select, exp.Union, exp.Except, exp.Intersect)
+    if not isinstance(root, allowed_roots):
+        raise SecurityViolationError("Only read-only SELECT queries are permitted.")
+
+    forbidden_nodes = _get_forbidden_nodes()
+    for node in statements[0].walk():
+        if isinstance(node, forbidden_nodes):
+            raise SecurityViolationError(
+                f"Destructive or administrative operation ({node.key.upper()}) is not permitted."
+            )
+
+    return statements[0].sql(dialect="sqlite")
 
 def sanitize_sql(sql_query: str) -> str:
     """
@@ -23,62 +84,13 @@ def sanitize_sql(sql_query: str) -> str:
     if not sql_query or not sql_query.strip():
         raise SecurityViolationError("Empty SQL query provided.")
 
-    # First, block destructive keywords before attempting to parse.
-    # This catches DML/DDL even if syntax is malformed.
-    destructive_keywords = (
-        "DELETE", "DROP", "UPDATE", "INSERT", "ALTER", "TRUNCATE", "CREATE"
-    )
-    sql_upper = sql_query.strip().upper()
-    
-    # Check for stacked queries (multiple statements separated by semicolon)
-    # Allow trailing semicolon, but multiple statements are blocked
-    statements_count = len([s.strip() for s in sql_query.split(";") if s.strip()])
-    if statements_count > 1:
-        raise SecurityViolationError("Stacked multiple queries are strictly prohibited.")
-    
-    # Check for destructive keywords at statement start or after semicolon
-    for keyword in destructive_keywords:
-        if sql_upper.startswith(keyword) or f"; {keyword}" in sql_upper:
-            raise SecurityViolationError(
-                f"Destructive operation ({keyword}) is not permitted. Only SELECT queries allowed."
-            )
+    _reject_obvious_destructive_sql(sql_query)
 
-    # Try to parse for additional deep validation
     try:
         statements = sqlglot.parse(sql_query, read="sqlite")
-        
-        if statements:
-            ast = statements[0]
-            
-            # If we successfully parsed, validate the AST strictly
-            if not isinstance(ast, exp.Select):
-                raise SecurityViolationError(
-                    "Only SELECT statements are permitted. DML/DDL commands blocked."
-                )
-            
-            # Deep check: Traverse AST to ensure no destructive operations hidden in CTEs/subqueries
-            forbidden_nodes = (
-                exp.Delete, exp.Drop, exp.Update, exp.Insert, exp.Create
-            )
-            # Try to include Alter if it exists (version-dependent)
-            if hasattr(exp, 'Alter'):
-                forbidden_nodes = forbidden_nodes + (exp.Alter,)
-            
-            for node in ast.find_all(forbidden_nodes):
-                raise SecurityViolationError(
-                    f"Destructive operation ({node.key.upper()}) found within the query structure."
-                )
-            
-            # Return the normalized SQL
-            return ast.sql(dialect="sqlite")
-    
+        return _validate_ast(statements)
     except sqlglot.errors.ParseError:
-        # If parsing fails but no destructive keywords detected, allow it through.
-        # The database will catch syntax errors; we're just blocking DML/DDL.
-        pass
-
-    # Return the original query as-is if parsing failed but it's not destructive
-    return sql_query.strip()
+        raise SecurityViolationError("SQL could not be safely parsed. Only valid read-only SELECT queries are allowed.")
 
 # --- Quick Local Test Block ---
 if __name__ == "__main__":
