@@ -64,6 +64,32 @@ def ensure_vlkg_ready():
     return _bootstrap_collection_if_missing()
 
 
+def get_vlkg_status() -> dict:
+    """Returns lightweight runtime status details for the VLKG collection."""
+    status = {
+        "chroma_path": CHROMA_PATH,
+        "collection_name": "spts_vlkg",
+        "collection_ready": False,
+        "mapping_count": 0,
+        "error": None,
+    }
+
+    try:
+        if not collection and not _connect_collection():
+            status["error"] = "Collection not found"
+            return status
+
+        status["collection_ready"] = True
+        try:
+            status["mapping_count"] = int(collection.count())
+        except Exception as count_error:
+            status["error"] = str(count_error)
+        return status
+    except Exception as error:
+        status["error"] = str(error)
+        return status
+
+
 def _norm_text(value):
     if value is None:
         return ""

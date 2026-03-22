@@ -1,5 +1,74 @@
+function toErrorText(payload) {
+  if (payload == null) return "Registration failed.";
+
+  if (typeof payload === "string") {
+    return payload;
+  }
+
+  if (Array.isArray(payload)) {
+    const messages = payload
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item.msg === "string") {
+          const field = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
+          if (field === "username") return `Username: ${item.msg}`;
+          if (field === "password") return `Password: ${item.msg}`;
+          if (field === "role") return `Role: ${item.msg}`;
+          return item.msg;
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    return messages.length ? messages.join("; ") : "Registration failed.";
+  }
+
+  if (typeof payload === "object") {
+    if (typeof payload.detail === "string") return payload.detail;
+    if (Array.isArray(payload.detail)) return toErrorText(payload.detail);
+    if (payload.detail && typeof payload.detail.msg === "string") return payload.detail.msg;
+    if (typeof payload.msg === "string") return payload.msg;
+  }
+
+  return "Registration failed.";
+}
+
+
+async function getResponseErrorMessage(response) {
+  let errorData = null;
+  let rawErrorText = "";
+
+  try {
+    errorData = await response.json();
+  } catch (parseError) {
+    console.warn("Failed to parse registration error payload:", parseError);
+    try {
+      rawErrorText = await response.text();
+    } catch (textError) {
+      console.warn("Failed to read registration error text:", textError);
+    }
+  }
+
+  const parsedMessage = toErrorText(errorData);
+  if (parsedMessage && parsedMessage !== "Registration failed.") {
+    return parsedMessage;
+  }
+
+  if (response.status === 429) {
+    return "Too many registration attempts. Please wait a minute and try again.";
+  }
+
+  const plainText = rawErrorText?.trim();
+  if (plainText) {
+    return plainText;
+  }
+
+  return `Registration failed (${response.status}).`;
+}
+
+
 async function register() {
-  const usernameInput = document.getElementById("username").value;
+  const usernameInput = document.getElementById("username").value.trim();
   const passwordInput = document.getElementById("password").value;
   const roleInput = document.getElementById("role").value;
   const errorMsg = document.getElementById("error-msg");
@@ -44,8 +113,8 @@ async function register() {
         document.getElementById("password").value = "";
         document.getElementById("role").value = "analyst";
     } else {
-      const errorData = await response.json();
-      errorMsg.textContent = errorData.detail || "Registration failed.";
+      errorMsg.textContent = await getResponseErrorMessage(response);
+
       errorMsg.style.display = "block";
     }
   } catch (error) {
