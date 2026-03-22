@@ -4,8 +4,10 @@ from sqlalchemy import MetaData, String, Table, create_engine, func, inspect, se
 
 try:
     from .config import get_main_database_url
+    from .sanitizer import sanitize_sql, SecurityViolationError
 except ImportError:
     from config import get_main_database_url
+    from sanitizer import sanitize_sql, SecurityViolationError
 
 
 @lru_cache(maxsize=1)
@@ -18,13 +20,13 @@ def get_main_dialect_name() -> str:
 
 
 def execute_raw_sql(sql: str):
+    safe_sql = sanitize_sql(sql)
     engine = get_main_engine()
     with engine.connect() as conn:
-        result = conn.execute(text(sql))
+        result = conn.execute(text(safe_sql))
         if result.returns_rows:
             return [tuple(row) for row in result.fetchall()]
-        conn.commit()
-        return []
+        raise SecurityViolationError("Only row-returning read-only queries are permitted.")
 
 
 def list_user_tables() -> list[str]:

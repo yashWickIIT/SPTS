@@ -1,6 +1,5 @@
 import time
-
-from groq import Groq
+from groq import Groq, RateLimitError, APITimeoutError
 try:
     from .config import API_KEY
     from .db_client import (
@@ -133,6 +132,26 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
                 "token_usage": tokens
             }
         }
+    except RateLimitError:
+        return {
+            "sql": "SELECT * FROM error; -- API Error: Groq rate limit exceeded (429). Please wait and retry.",
+            "rationale": {
+                "system_prompt": system_prompt.strip(),
+                "injected_context": injected_context_str.strip(),
+                "latency_ms": 0,
+                "token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            }
+        }
+    except APITimeoutError:
+        return {
+            "sql": "SELECT * FROM error; -- API Error: Groq request timed out. Please retry.",
+            "rationale": {
+                "system_prompt": system_prompt.strip(),
+                "injected_context": injected_context_str.strip(),
+                "latency_ms": 0,
+                "token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            }
+        }
     except Exception as e:
         return {
             "sql": f"SELECT * FROM error; -- API Error: {str(e)}",
@@ -190,5 +209,9 @@ def fix_sql_with_llm(user_query, bad_sql, error_message, mappings=None):
             .replace("```", "")
             .strip()
         )
+    except RateLimitError:
+        return "SELECT * FROM error; -- API Error: Groq rate limit exceeded (429). Please wait and retry."
+    except APITimeoutError:
+        return "SELECT * FROM error; -- API Error: Groq request timed out. Please retry."
     except Exception as e:
         return f"SELECT * FROM error; -- API Error: {str(e)}"

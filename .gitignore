@@ -7,7 +7,7 @@ __pycache__/
 *.pyd
 vlkg.json
 .bin
-chroma_db
+kg/chroma_db
 
 # Evaluation artifacts
 _tmp_eval_*.json

@@ -13,3 +13,4 @@ passlib[bcrypt]
 python-multipart
 apscheduler
 sqlglot>=23.0.0
+slowapi

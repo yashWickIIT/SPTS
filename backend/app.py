@@ -1,15 +1,19 @@
 import os
 import sys
 from typing import Annotated
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 try:
     from . import grounding
@@ -19,6 +23,7 @@ try:
     from .auth import verify_password, get_password_hash, create_access_token, get_current_user, require_roles, ACCESS_TOKEN_EXPIRE_MINUTES
     from . import session_logger
     from .sanitizer import sanitize_sql, SecurityViolationError
+    from .config import ALLOWED_ORIGINS, MAX_QUERY_LENGTH, MAX_REQUEST_BODY_BYTES
     from kg.update_vlkg import delta_update
 except ImportError:
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -33,9 +38,14 @@ except ImportError:
     from auth import verify_password, get_password_hash, create_access_token, get_current_user, require_roles, ACCESS_TOKEN_EXPIRE_MINUTES
     import session_logger
     from sanitizer import sanitize_sql, SecurityViolationError
+    from config import ALLOWED_ORIGINS, MAX_QUERY_LENGTH, MAX_REQUEST_BODY_BYTES
     from kg.update_vlkg import delta_update
 
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 scheduler = BackgroundScheduler()
 
@@ -60,7 +70,7 @@ def stop_scheduler():
 # Enabling CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -71,14 +81,29 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    body = await request.body()
+    if len(body) > MAX_REQUEST_BODY_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={"detail": f"Request body too large. Limit is {MAX_REQUEST_BODY_BYTES} bytes."},
+        )
+    return await call_next(request)
+
+
 @app.get("/")
 async def read_root():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=8, max_length=128)
     role: str = "analyst"
+
+
+class QueryPayload(BaseModel):
+    query: str = Field(min_length=1, max_length=MAX_QUERY_LENGTH)
 
 
 QUERY_ALLOWED_ROLES = set(ALLOWED_ROLES)
@@ -89,7 +114,8 @@ QUERY_ALLOWED_ROLES = set(ALLOWED_ROLES)
         400: {"description": "Invalid role or username already registered"},
     },
 )
-def register(user: UserCreate):
+@limiter.limit("3/minute")
+def register(request: Request, user: UserCreate):
     normalized_input_role = (user.role or "").strip().lower()
     if normalized_input_role not in ALLOWED_ROLES:
         raise HTTPException(status_code=400, detail="Invalid role")
@@ -110,7 +136,9 @@ def register(user: UserCreate):
         403: {"description": "Insufficient role permissions"},
     },
 )
+@limiter.limit("10/minute")
 def admin_register(
+    request: Request,
     user: UserCreate,
     _: Annotated[dict, Depends(require_roles("admin"))],
 ):
@@ -131,7 +159,8 @@ def admin_register(
     }
 
 @app.post("/token")
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+@limiter.limit("5/minute")
+async def login_for_access_token(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     user = get_user_by_username(form_data.username)
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
@@ -162,11 +191,13 @@ def _sanitize_or_raise(sql: str, label: str) -> str:
     "/query",
     responses={
         400: {"description": "Unsafe SQL blocked by sanitizer"},
+        429: {"description": "Rate limit exceeded"},
         503: {"description": "SQL generation service unavailable"},
     },
 )
-def query(payload: dict, current_user: Annotated[dict, Depends(require_roles(*QUERY_ALLOWED_ROLES))]):
-    user_query = payload["query"]
+@limiter.limit("10/minute")
+def query(request: Request, payload: QueryPayload, current_user: Annotated[dict, Depends(require_roles(*QUERY_ALLOWED_ROLES))]):
+    user_query = payload.query.strip()
 
     def extract_api_error(sql_text: str):
         marker = "-- API Error:"
@@ -273,7 +304,9 @@ _VALID_RATINGS = {"helpful", "unhelpful"}
         400: {"description": "Invalid rating value or no session found for this query index"},
     },
 )
+@limiter.limit("30/minute")
 def submit_feedback(
+    request: Request,
     payload: FeedbackPayload,
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
@@ -298,7 +331,8 @@ def submit_feedback(
         404: {"description": "No session log found for current user"},
     },
 )
-def download_session_log(current_user: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("20/minute")
+def download_session_log(request: Request, current_user: Annotated[dict, Depends(get_current_user)]):
     username = current_user.get("username", "")
     session_file = session_logger.get_session_file_path(username)
 
@@ -313,7 +347,8 @@ def download_session_log(current_user: Annotated[dict, Depends(get_current_user)
 
 
 @app.get("/me")
-def me(current_user: Annotated[dict, Depends(get_current_user)]):
+@limiter.limit("30/minute")
+def me(request: Request, current_user: Annotated[dict, Depends(get_current_user)]):
     return {
         "id": current_user.get("id"),
         "username": current_user.get("username"),

@@ -47,6 +47,13 @@ def get_main_database_url() -> str:
 # Checks both API_KEY and GROQ_API_KEY for backward compatibility
 API_KEY = os.getenv("API_KEY") or os.getenv("GROQ_API_KEY") or ""
 
+
+def get_allowed_origins() -> list[str]:
+    raw = os.getenv("SPTS_ALLOWED_ORIGINS", "").strip()
+    if not raw:
+        return ["http://localhost", "http://127.0.0.1", "http://localhost:8000", "http://127.0.0.1:8000"]
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
 # JWT secret key for session tokens
 SECRET_KEY = os.getenv("SECRET_KEY") or "spts-super-secret-key-12345"
 
@@ -61,3 +68,6 @@ SESSIONS_DIR = os.getenv("SPTS_SESSIONS_DIR") or "/app/sessions"
 CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
 MAIN_DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
 MAIN_DATABASE_URL = get_main_database_url()
+ALLOWED_ORIGINS = get_allowed_origins()
+MAX_REQUEST_BODY_BYTES = int(os.getenv("SPTS_MAX_REQUEST_BODY_BYTES") or "16384")
+MAX_QUERY_LENGTH = int(os.getenv("SPTS_MAX_QUERY_LENGTH") or "1000")
