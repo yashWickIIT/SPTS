@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css?v=5" />
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="/static/app.js"></script>
   </head>
   <body>
     <div class="container">
@@ -43,7 +44,7 @@
           id="query"
           placeholder="Try a messy query: 'Count schools in LAUSD'"
         />
-        <button onclick="runQuery()" id="runBtn">Run Experiment</button>
+        <button id="runBtn" class="btn-primary" onclick="runQuery()" disabled>Run Experiment</button>
       </div>
 
       <div
@@ -65,8 +66,8 @@
 
           <div id="base-feedback" class="feedback-row" style="display: none;">
             <span class="feedback-label">Was this result helpful?</span>
-            <button class="feedback-btn feedback-btn-pos" id="base-helpful" onclick="submitFeedback('baseline', 'helpful')">&#128077; Helpful</button>
-            <button class="feedback-btn feedback-btn-neg" id="base-unhelpful" onclick="submitFeedback('baseline', 'unhelpful')">&#128078; Not helpful</button>
+            <button id="base-helpful" onclick="submitFeedback('baseline', 'helpful')">&#128077; Helpful</button>
+            <button id="base-unhelpful" onclick="submitFeedback('baseline', 'unhelpful')">&#128078; Not helpful</button>
           </div>
         </div>
 
@@ -84,7 +85,7 @@
 
           <div id="grounding-container" style="display: none; margin-bottom: 1.5rem;">
             <span class="label">KNOWLEDGE GRAPH REASONING</span>
-            <div id="kg-network" style="height: 250px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #f8fafc; margin-top: 0.5rem;"></div>
+            <div id="kg-network" style="height: 250px; border: 1px solid var(--border); border-radius: 8px; background-color: var(--card-bg); margin-top: 0.5rem;"></div>
           </div>
 
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
@@ -100,8 +101,8 @@
 
           <div id="spts-feedback" class="feedback-row" style="display: none;">
             <span class="feedback-label">Was this result helpful?</span>
-            <button class="feedback-btn feedback-btn-pos" id="spts-helpful" onclick="submitFeedback('spts', 'helpful')">&#128077; Helpful</button>
-            <button class="feedback-btn feedback-btn-neg" id="spts-unhelpful" onclick="submitFeedback('spts', 'unhelpful')">&#128078; Not helpful</button>
+            <button id="spts-helpful" onclick="submitFeedback('spts', 'helpful')">&#128077; Helpful</button>
+            <button id="spts-unhelpful" onclick="submitFeedback('spts', 'unhelpful')">&#128078; Not helpful</button>
           </div>
         </div>
       </div>
@@ -115,11 +116,11 @@
           <h2 style="color: var(--primary); margin: 0; font-size: 1.25rem;">Diagnostic Console: Under the Hood</h2>
         </div>
         <div style="display: flex; gap: 0.5rem;">
-          <button onclick="copyRationale()" class="toggle-btn" title="Copy to Clipboard">
+          <button onclick="copyRationale()" title="Copy to Clipboard">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             Copy JSON
           </button>
-          <button onclick="toggleRationale()" class="icon-btn" title="Close" style="padding: 6px; display: flex; align-items: center; justify-content: center;">
+          <button onclick="toggleRationale()" title="Close" style="padding: 6px; display: flex; align-items: center; justify-content: center;">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
@@ -195,7 +196,7 @@
         </div>
         <a
           id="googleFormOpenLink"
-          class="toggle-btn"
+          class="btn"
           href="#"
           target="_blank"
           rel="noopener noreferrer"

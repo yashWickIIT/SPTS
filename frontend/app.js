@@ -30,7 +30,7 @@ function _initGoogleForm() {
 
   if (!GOOGLE_FORM_URL?.startsWith('https://forms.gle/')) {
     hint.textContent = 'Google Form is not configured yet. Set GOOGLE_FORM_URL in app.js.';
-    hint.style.color = '#ef4444';
+    hint.style.color = 'var(--danger)';
     frame.style.display = 'none';
     openLink.style.display = 'none';
     return;
@@ -319,9 +319,9 @@ function renderResult(elementId, resultData) {
       firstRowStr.includes("syntax")
     ) {
       el.className = "status status-empty";
-      el.style.backgroundColor = "#fee2e2";
-      el.style.color = "#991b1b";
-      el.style.borderColor = "#f87171";
+      el.style.backgroundColor = "var(--primary-light)";
+      el.style.color = "var(--primary)";
+      el.style.borderColor = "var(--danger)";
       el.textContent = "Execution Error:\n" + resultData[0];
       return;
     }
@@ -363,6 +363,14 @@ function renderResult(elementId, resultData) {
 let network = null;
 
 function renderKnowledgeGraph(mappings) {
+  const style = getComputedStyle(document.documentElement);
+  
+  const colorPrimary = style.getPropertyValue('--primary').trim();
+  const colorPrimaryLight = style.getPropertyValue('--primary-light').trim();
+  const colorSecondary = style.getPropertyValue('--secondary').trim();
+  const colorSecondaryLight = style.getPropertyValue('--success').trim();
+  const colorDanger = style.getPropertyValue('--danger').trim();
+
   const nodes = new vis.DataSet();
   const edges = new vis.DataSet();
   
@@ -376,8 +384,8 @@ function renderKnowledgeGraph(mappings) {
       id: entityId,
       label: mapping.original,
       shape: "box",
-      color: { background: "#fecdd3", border: "#f43f5e" },
-      font: { color: "#881337", face: 'system-ui', size: 14 }
+      color: { background: colorPrimaryLight, border: colorDanger },
+      font: { color: colorPrimary, face: 'system-ui', size: 14 }
     });
 
     // Node B: Canonical Database Value
@@ -386,8 +394,8 @@ function renderKnowledgeGraph(mappings) {
       id: valueId,
       label: mapping.grounded,
       shape: "box",
-      color: { background: "#dcfce7", border: "#22c55e" },
-      font: { color: "#14532d", face: 'system-ui', size: 14 }
+      color: { background: colorPrimaryLight, border: colorSecondary },
+      font: { color: colorPrimary, face: 'system-ui', size: 14 }
     });
 
     // Node C: Database Schema Location (Deduplicate)
@@ -401,14 +409,12 @@ function renderKnowledgeGraph(mappings) {
         id: schemaId,
         label: schemaLabel,
         shape: "ellipse",
-        color: { background: "#dbeafe", border: "#3b82f6" },
-        font: { color: "#1e3a8a", face: 'system-ui', size: 14 } // ensure text visibility over light blue
+        color: { background: colorSecondaryLight, border: colorSecondary },
+        font: { color: colorPrimary, face: 'system-ui', size: 14 } // ensure text visibility over light blue
       });
       addedNodes.set(schemaLabel, schemaId);
     }
 
-    // Edge A -> B: Distance/Match
-    // E.g. "Semantic Match (0.65)"
     const matchLabel = `${mapping.type} (${mapping.distance.toFixed(2)})`;
     edges.add({
       from: entityId,
@@ -416,18 +422,17 @@ function renderKnowledgeGraph(mappings) {
       label: matchLabel,
       arrows: "to",
       font: { size: 12, face: 'system-ui', align: "top" },
-      color: { color: "#94a3b8" },
+      color: { color: colorPrimary },
       dashes: true
     });
 
-    // Edge B -> C: Found in Column
     edges.add({
       from: valueId,
       to: schemaId,
       label: "Found in Column",
       arrows: "to",
       font: { size: 12, face: 'system-ui', align: "top" },
-      color: { color: "#94a3b8" }
+      color: { color: colorPrimary }
     });
   });
 
@@ -436,13 +441,13 @@ function renderKnowledgeGraph(mappings) {
   const options = {
     layout: {
       hierarchical: {
-        direction: "LR", // Left to Right
+        direction: "LR", 
         sortMethod: "directed",
         nodeSpacing: 150,
         levelSeparation: 250
       }
     },
-    physics: false, // Hierarchical layout disables standard physics but keep this clear
+    physics: false,
     interaction: {
       dragNodes: false,
       zoomView: true,
@@ -450,7 +455,6 @@ function renderKnowledgeGraph(mappings) {
     }
   };
 
-  // If a network already exists, destroy it before rendering the new one
   if (network !== null) {
     network.destroy();
     network = null;
@@ -458,10 +462,6 @@ function renderKnowledgeGraph(mappings) {
   
   network = new vis.Network(container, data, options);
 }
-
-// ==========================================
-// Rationale Side Panel Logic
-// ==========================================
 
 let isRationaleVisible = false;
 let currentRationaleData = null;
@@ -474,7 +474,6 @@ function toggleRationale() {
   isRationaleVisible = !isRationaleVisible;
   
   if (isRationaleVisible) {
-    // Show as flex since it's a card container
     panel.style.display = "flex";
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else {
@@ -495,17 +494,13 @@ function populateRationale(rationaleObj) {
   document.getElementById("rationale-loader").style.display = "none";
   document.getElementById("rationale-data").style.display = "block";
 
-  // Metrics
   document.getElementById("rat-latency").textContent = `${rationaleObj.latency_ms} ms`;
   document.getElementById("rat-tokens").textContent = rationaleObj.token_usage ? rationaleObj.token_usage.total_tokens : "--";
 
-  // System Prompt
   document.getElementById("rat-system").textContent = rationaleObj.system_prompt || "No system prompt recorded.";
   
-  // Injected Context
   document.getElementById("rat-context").textContent = rationaleObj.injected_context || "None";
   
-  // Flags & Usage Structure
   let flagsData = { ...rationaleObj };
   delete flagsData.system_prompt;
   delete flagsData.injected_context;
