@@ -115,4 +115,33 @@ docker compose -f docker-compose.test.yml down
 
 ---
 
+## 🚀 Testing Your Own "Messy" Database
+
+By default, the image loads a sample flight/birds database. If you want to connect your own real-world database to see how well SPTS handles messy schemas:
+
+1. Create a folder named `custom_db` next to the `docker-compose.test.yml` file.
+2. Place your SQLite database file inside it (e.g., `my_work_database.sqlite`).
+3. Open `docker-compose.test.yml` in a text editor.
+4. Uncomment the custom database volume mount by removing the `#`:
+   ```yaml
+   volumes:
+     - ./sessions:/app/sessions
+     - ./custom_db:/app/custom_db:ro
+   ```
+5. Open your `.env` file and instruct the app to point to your new database:
+   ```env
+   API_KEY=your_actual_groq_api_key_here
+   SPTS_MAIN_DB_PATH=/app/custom_db/my_work_database.sqlite
+   ```
+   *(Make sure the filename matches exactly)*
+6. Restart the application:
+   ```bash
+   docker compose -f docker-compose.test.yml down
+   docker compose -f docker-compose.test.yml up
+   ```
+
+> **Note:** The first time you start up with a new database, it may take some time to load. SPTS has to build a Vector-Level Knowledge Graph (VLKG) of your entirely new schema in the background to learn the definitions!
+
+---
+
 *Thank you for helping test SPTS! 🙏*

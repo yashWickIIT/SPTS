@@ -6,6 +6,8 @@ services:
       - "8000:8000"
     volumes:
       - ./sessions:/app/sessions
+      # Uncomment the line below to mount your own database folder:
+      # - ./custom_db:/app/custom_db:ro
     env_file:
       - .env
     restart: unless-stopped
