@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from dotenv import load_dotenv
 
@@ -25,15 +26,37 @@ def get_env_path(env_key: str, default_relative_path: str) -> str:
 
 
 def get_main_database_url() -> str:
-    """Return DB URL from env, or fall back to local sqlite prototype path."""
+    """Return strict read-only DB URL for main query database."""
     explicit_url = os.getenv("SPTS_DATABASE_URL", "").strip()
     if explicit_url:
-        return explicit_url
+        return _ensure_read_only_database_url(explicit_url)
 
     sqlite_path = Path(
         get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
     )
-    return f"sqlite:///{sqlite_path.as_posix()}"
+    sqlite_file_uri = f"sqlite:///file:{sqlite_path.as_posix()}?mode=ro&uri=true"
+    return _ensure_read_only_database_url(sqlite_file_uri)
+
+
+def _ensure_read_only_database_url(url: str) -> str:
+    """Force read-only mode for SQLite URLs used by the main query engine."""
+    if not url.lower().startswith("sqlite://"):
+        return url
+
+    parsed = urlsplit(url)
+    query_params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query_params["mode"] = "ro"
+    query_params["uri"] = "true"
+
+    if parsed.netloc:
+        sqlite_target = f"{parsed.netloc}{parsed.path}"
+    else:
+        sqlite_target = parsed.path.lstrip("/")
+
+    if not sqlite_target.lower().startswith("file:"):
+        sqlite_target = f"file:{sqlite_target}"
+
+    return f"sqlite:///{sqlite_target}?{urlencode(query_params)}"
 
 
 # ============================================================================
