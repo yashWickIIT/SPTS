@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SPTS Login</title>
     <link rel="icon" type="image/png" href="/static/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -24,10 +27,10 @@
           <label for="password" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Password</label>
           <input type="password" id="password" placeholder="Enter password" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; box-sizing: border-box;" />
         </div>
-        <button id="loginBtn" onclick="login()" style="width: 100%; margin-bottom: 1rem;">Log In</button>
-        <div id="error-msg" style="color: #ef4444; font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
-        <div style="text-align: center; font-size: 0.875rem; color: #64748b;">
-          Don't have an account? <a href="/static/register.html" style="color: #3b82f6; text-decoration: none;">Register here</a>
+        <button id="loginBtn" class="btn-primary" onclick="login()" style="width: 100%; margin-bottom: 1rem;">Log In</button>
+        <div id="error-msg" style="color: var(--danger); font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
+        <div style="text-align: center; font-size: 0.875rem; color: var(--text-muted);">
+          Don't have an account? <a href="/static/register.html" style="color: var(--secondary); text-decoration: none;">Register here</a>
         </div>
       </div>
     </div>

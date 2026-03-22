@@ -64,7 +64,7 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
     client = _get_groq_client()
     if client is None:
         return {
-            "sql": "SELECT * FROM error; -- API Error: Missing API_KEY/GROQ_API_KEY",
+            "sql": "SELECT * FROM error -- API Error: Missing API_KEY/GROQ_API_KEY",
             "rationale": {
                 "system_prompt": "",
                 "injected_context": "",
@@ -134,7 +134,7 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
         }
     except RateLimitError:
         return {
-            "sql": "SELECT * FROM error; -- API Error: Groq rate limit exceeded (429). Please wait and retry.",
+            "sql": "SELECT * FROM error -- API Error: Groq rate limit exceeded (429). Please wait and retry.",
             "rationale": {
                 "system_prompt": system_prompt.strip(),
                 "injected_context": injected_context_str.strip(),
@@ -144,7 +144,7 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
         }
     except APITimeoutError:
         return {
-            "sql": "SELECT * FROM error; -- API Error: Groq request timed out. Please retry.",
+            "sql": "SELECT * FROM error -- API Error: Groq request timed out. Please retry.",
             "rationale": {
                 "system_prompt": system_prompt.strip(),
                 "injected_context": injected_context_str.strip(),
@@ -154,7 +154,7 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
         }
     except Exception as e:
         return {
-            "sql": f"SELECT * FROM error; -- API Error: {str(e)}",
+            "sql": f"SELECT * FROM error -- API Error: {str(e)}",
             "rationale": {
                 "system_prompt": system_prompt.strip(),
                 "injected_context": injected_context_str.strip(),
@@ -173,7 +173,7 @@ def spts_text_to_sql(user_query, mappings=None):
 def fix_sql_with_llm(user_query, bad_sql, error_message, mappings=None):
     client = _get_groq_client()
     if client is None:
-        return "SELECT * FROM error; -- API Error: Missing API_KEY/GROQ_API_KEY"
+        return "SELECT * FROM error -- API Error: Missing API_KEY/GROQ_API_KEY"
 
     schema_context = get_schema_summary()
     sql_dialect = get_main_dialect_name()
@@ -210,8 +210,8 @@ def fix_sql_with_llm(user_query, bad_sql, error_message, mappings=None):
             .strip()
         )
     except RateLimitError:
-        return "SELECT * FROM error; -- API Error: Groq rate limit exceeded (429). Please wait and retry."
+        return "SELECT * FROM error -- API Error: Groq rate limit exceeded (429). Please wait and retry."
     except APITimeoutError:
-        return "SELECT * FROM error; -- API Error: Groq request timed out. Please retry."
+        return "SELECT * FROM error -- API Error: Groq request timed out. Please retry."
     except Exception as e:
-        return f"SELECT * FROM error; -- API Error: {str(e)}"
+        return f"SELECT * FROM error -- API Error: {str(e)}"
