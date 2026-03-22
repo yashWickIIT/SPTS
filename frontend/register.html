@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SPTS Registration</title>
     <link rel="icon" type="image/png" href="/static/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -37,10 +40,10 @@
           </select>
         </div>
         <button id="registerBtn" onclick="register()" style="width: 100%; margin-bottom: 1rem;">Register</button>
-        <div id="error-msg" style="color: #ef4444; font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
-        <div id="success-msg" style="color: #10b981; font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
-        <div style="text-align: center; font-size: 0.875rem; color: #64748b;">
-          Already have an account? <a href="/static/login.html" style="color: #3b82f6; text-decoration: none;">Log in here</a>
+        <div id="error-msg" style="color: var(--danger); font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
+        <div id="success-msg" style="color: var(--success); font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
+        <div style="text-align: center; font-size: 0.875rem; color: var(--text-muted);">
+          Already have an account? <a href="/static/login.html" style="color: var(--secondary); text-decoration: none;">Log in here</a>
         </div>
       </div>
     </div>

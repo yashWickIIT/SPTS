@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SPTS: Research Prototype</title>
     <link rel="icon" type="image/png" href="/static/favicon.png" />
-    <link rel="stylesheet" href="/static/styles.css?v=4" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css?v=5" />
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   </head>
   <body>
@@ -48,7 +51,7 @@
         id="resultsArea"
         style="opacity: 0.5; pointer-events: none"
       >
-        <div class="card" class="card" style="border-color:#64748b; border-width: 2px">
+        <div class="card" style="border-color: var(--base); border-width: 2px">
           <div class="card-header">
             <h2>Baseline Model</h2>
             <span class="badge badge-base">Standard LLM</span>
@@ -67,9 +70,9 @@
           </div>
         </div>
 
-        <div class="card" style="border-color: #22c55e; border-width: 2px; position: relative;">
+        <div class="card" style="border-color: var(--success); border-width: 2px; position: relative;">
           <div class="card-header">
-            <h2 style="color: #16a34a">SPTS</h2>
+            <h2 style="color: var(--success)">SPTS</h2>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
               <button onclick="toggleRationale()" id="rationaleBtn" class="toggle-btn" title="View AI Reasoning & Raw Prompt" style="display: none;">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
@@ -112,11 +115,12 @@
           <h2 style="color: var(--primary); margin: 0; font-size: 1.25rem;">Diagnostic Console: Under the Hood</h2>
         </div>
         <div style="display: flex; gap: 0.5rem;">
-          <button onclick="copyRationale()" class="icon-btn" title="Copy to Clipboard" style="border: 1px solid var(--border); padding: 6px 12px; font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+          <button onclick="copyRationale()" class="toggle-btn" title="Copy to Clipboard">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             Copy JSON
           </button>
-          <button onclick="toggleRationale()" class="icon-btn" title="Close" style="border: 1px solid var(--border); padding: 6px 12px; font-size: 0.85rem;">
-            Close
+          <button onclick="toggleRationale()" class="icon-btn" title="Close" style="padding: 6px; display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
       </div>
