@@ -1,6 +1,7 @@
 import os
 import sys
 from typing import Annotated
+from urllib.parse import parse_qs, urlsplit
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -23,7 +24,7 @@ try:
     from .auth import verify_password, get_password_hash, create_access_token, get_current_user, require_roles, ACCESS_TOKEN_EXPIRE_MINUTES
     from . import session_logger
     from .sanitizer import sanitize_sql, SecurityViolationError
-    from .config import ALLOWED_ORIGINS, MAX_QUERY_LENGTH, MAX_REQUEST_BODY_BYTES
+    from .config import ALLOWED_ORIGINS, MAX_QUERY_LENGTH, MAX_REQUEST_BODY_BYTES, get_main_database_url
     from kg.update_vlkg import delta_update
 except ImportError:
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,7 +39,7 @@ except ImportError:
     from auth import verify_password, get_password_hash, create_access_token, get_current_user, require_roles, ACCESS_TOKEN_EXPIRE_MINUTES
     import session_logger
     from sanitizer import sanitize_sql, SecurityViolationError
-    from config import ALLOWED_ORIGINS, MAX_QUERY_LENGTH, MAX_REQUEST_BODY_BYTES
+    from config import ALLOWED_ORIGINS, MAX_QUERY_LENGTH, MAX_REQUEST_BODY_BYTES, get_main_database_url
     from kg.update_vlkg import delta_update
 
 limiter = Limiter(key_func=get_remote_address)
@@ -49,9 +50,24 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 scheduler = BackgroundScheduler()
 
+
+def _assert_read_only_main_db() -> None:
+    db_url = get_main_database_url()
+    if not db_url.lower().startswith("sqlite://"):
+        return
+
+    params = parse_qs(urlsplit(db_url).query)
+    mode = (params.get("mode", [""])[0] or "").strip().lower()
+    if mode != "ro":
+        raise RuntimeError(
+            "Unsafe database configuration: main SQLite database must be opened in strict read-only mode (mode=ro)."
+        )
+
 @app.on_event("startup")
 def start_scheduler():
     """Starts the background task to run delta_update during off-peak hours."""
+    _assert_read_only_main_db()
+
     vlkg_ready = grounding.ensure_vlkg_ready()
     if vlkg_ready:
         print("VLKG ready at startup.")
