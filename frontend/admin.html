@@ -7,63 +7,62 @@
     <link rel="icon" type="image/png" href="/static/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/tailwind.config.js"></script>
+    <script src="/static/admin.js"></script>
   </head>
-  <body>
-    <div class="container" style="max-width: 520px; margin-top: 60px;">
-      <header style="margin-bottom: 1.5rem; text-align: left;">
-        <h1>Admin Portal</h1>
-        <div class="subtitle">Create privileged users via /admin/register</div>
+  <body class="flex items-center justify-center p-10 min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 font-outfit text-charcoal leading-relaxed">
+    <div class="flex flex-col w-full max-w-[550px] bg-white rounded-2xl shadow-premium p-14 relative">
+      <header class="text-center mb-10">
+        <h1 class="text-[28px] font-bold bg-gradient-to-r from-charcoal to-sage-dark bg-clip-text text-transparent mb-2">Admin Console</h1>
+        <p class="text-[14px] text-slate font-normal">Create privileged users and monitor vectors</p>
       </header>
 
-      <div class="card" style="margin-bottom: 1rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-          <h2 style="margin: 0; font-size: 1rem;">Vector DB Monitor</h2>
-          <button id="refreshVlkgBtn" onclick="refreshVlkgStatus()" style="background:none; color:var(--text); border:1px solid var(--border);">Refresh</button>
+      <div class="bg-gray-50/50 border border-gray-100 rounded-md p-6 shadow-sm mb-10 relative">
+        <div class="flex justify-between items-center mb-5">
+          <h3 class="text-[16px] font-semibold">Vector DB Status</h3>
+          <button id="refreshVlkgBtn" class="px-4 py-1.5 border border-gray-200 rounded-md text-[12px] font-medium text-slate hover:border-sage-dark hover:text-sage-dark transition-all bg-white" onclick="refreshVlkgStatus()">Refresh</button>
         </div>
-        <div id="vlkg-status-msg" class="subtitle" style="margin-bottom: 0.5rem;">Loading...</div>
-        <div class="subtitle" style="margin-bottom: 0.25rem;">Collection: <strong id="vlkg-collection">-</strong></div>
-        <div class="subtitle" style="margin-bottom: 0.25rem;">Mappings: <strong id="vlkg-count">-</strong></div>
-        <div class="subtitle" style="margin-bottom: 0.25rem;">Storage Path: <strong id="vlkg-path">-</strong></div>
-        <div class="subtitle" style="margin-bottom: 0;">Error: <strong id="vlkg-error">none</strong></div>
+        <div id="vlkg-status-msg" class="bg-gray-100 px-4 py-1.5 rounded-md text-[12px] font-bold uppercase text-gray-600 mb-4 inline-block">Loading...</div>
+        <div class="text-[13px] text-slate mb-2">Collection: <strong id="vlkg-collection" class="text-charcoal font-semibold">--</strong></div>
+        <div class="text-[13px] text-slate mb-2">Mappings: <strong id="vlkg-count" class="text-charcoal font-semibold">--</strong></div>
+        <div class="text-[13px] text-slate mb-2">Path: <strong id="vlkg-path" class="text-charcoal font-semibold">--</strong></div>
+        <div class="text-[13px] text-slate">Error: <strong id="vlkg-error" class="text-error font-semibold">none</strong></div>
       </div>
 
-      <div class="card">
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label for="username" style="display:block; margin-bottom:0.5rem; font-weight:500;">Username</label>
-          <input id="username" type="text" placeholder="new username" style="width:100%; padding:0.75rem; border:1px solid var(--border); border-radius:0.5rem; box-sizing:border-box;" />
-        </div>
+      <div class="mb-5">
+        <label for="username" class="block text-[13px] font-semibold text-muted mb-2 uppercase tracking-wider">Username</label>
+        <input id="username" type="text" class="w-full border-b-2 border-gray-200 py-3 px-1 text-base font-medium text-charcoal bg-transparent outline-none transition-all duration-300 focus:border-sage-dark focus:pl-2" placeholder="Enter username" />
+      </div>
 
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label for="password" style="display:block; margin-bottom:0.5rem; font-weight:500;">Password</label>
-          <input id="password" type="password" placeholder="new password" style="width:100%; padding:0.75rem; border:1px solid var(--border); border-radius:0.5rem; box-sizing:border-box;" />
-        </div>
+      <div class="mb-5">
+        <label for="password" class="block text-[13px] font-semibold text-muted mb-2 uppercase tracking-wider">Password</label>
+        <input id="password" type="password" class="w-full border-b-2 border-gray-200 py-3 px-1 text-base font-medium text-charcoal bg-transparent outline-none transition-all duration-300 focus:border-sage-dark focus:pl-2" placeholder="Enter password" />
+      </div>
 
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label for="role" style="display:block; margin-bottom:0.5rem; font-weight:500;">Role</label>
-          <select id="role" style="width:100%; padding:0.75rem; border:1px solid var(--border); border-radius:0.5rem; box-sizing:border-box;">
-            <option value="admin">Admin</option>
-            <option value="developer">Developer</option>
-            <option value="qa">Quality Assurance</option>
-            <option value="engineer">Engineer</option>
-            <option value="analyst">Analyst</option>
-            <option value="manager">Manager</option>
-            <option value="researcher">Researcher</option>
-          </select>
-        </div>
+      <div class="mb-10">
+        <label for="role" class="block text-[13px] font-semibold text-muted mb-2 uppercase tracking-wider">Access Level</label>
+        <select id="role" class="w-full border-b border-gray-200 py-3 text-base font-medium text-charcoal bg-transparent outline-none transition-all duration-300 focus:border-sage-dark">
+          <option value="admin">Admin</option>
+          <option value="developer">Developer</option>
+          <option value="qa">Quality Assurance</option>
+          <option value="engineer">Engineer</option>
+          <option value="analyst">Analyst</option>
+          <option value="manager">Manager</option>
+          <option value="researcher">Researcher</option>
+        </select>
+      </div>
 
-        <button id="createBtn" onclick="createAdminUser()" style="width:100%; margin-bottom:0.75rem;">Create User</button>
-        <div id="error-msg" style="display:none; color:var(--danger); font-size:0.875rem; margin-bottom:0.75rem;"></div>
-        <div id="success-msg" style="display:none; color:var(--success); font-size:0.875rem; margin-bottom:0.75rem;"></div>
+      <button id="createBtn" class="w-full py-3.5 px-10 bg-sage-dark text-white rounded-md text-base font-semibold cursor-pointer shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 mb-6" onclick="createAdminUser()">Create User</button>
+      
+      <div id="error-msg" class="text-center mb-4 text-sm font-medium"></div>
+      <div id="success-msg" class="text-center mb-4 text-sm font-medium"></div>
 
-        <div style="display:flex; gap:0.75rem;">
-          <button onclick="backToApp()" style="flex:1; background:none; color:var(--text); border:1px solid var(--border);">Back</button>
-          <button onclick="logout()" style="flex:1; background:none; color:var(--text); border:1px solid var(--border);">Logout</button>
-        </div>
+      <div class="flex gap-4 mt-4">
+        <button class="flex-1 px-6 py-2.5 border border-gray-200 rounded-md text-slate text-[14px] font-medium hover:border-sage-dark hover:text-sage-dark hover:bg-sage/5 transition-all text-center" onclick="backToApp()">Return to App</button>
+        <button class="flex-1 px-6 py-2.5 border border-gray-200 rounded-md text-slate text-[14px] font-medium hover:border-sage-dark hover:text-sage-dark hover:bg-sage/5 transition-all text-center" onclick="logout()">Logout</button>
       </div>
     </div>
-
-    <script src="/static/admin.js"></script>
   </body>
 </html>
