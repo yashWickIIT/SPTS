@@ -45,9 +45,7 @@ INFO:     Application startup complete.
 
 Go to **[http://localhost:8000](http://localhost:8000)** in your browser.
 
-Login with:
-- **Username:** `tester`
-- **Password:** `spts-test-2024`
+If this is your first time, click **Create an Account**, create your own account, and then log in.
 
 ---
 
@@ -129,6 +127,8 @@ By default, the image loads a sample flight/birds database. If you want to conne
    ```
 
 > **Note:** The first time you start up with a new database, it may take some time to load. SPTS has to build a Vector-Level Knowledge Graph (VLKG) of your entirely new schema in the background to learn the definitions!
+
+If you do not want to use your own database, you can skip all of the steps above. The default sample database 'califonia schools BIRD_dev_mini' is already included in the Docker image.
 
 ---
 
