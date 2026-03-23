@@ -3,216 +3,207 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SPTS: Research Prototype</title>
+    <title>SPTS: Semantic Profiler</title>
     <link rel="icon" type="image/png" href="/static/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css?v=5" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/tailwind.config.js"></script>
+    <style type="text/tailwindcss">
+      .feedback-btn { @apply px-6 py-2 border rounded-md text-[14px] font-medium transition-all; }
+      .feedback-btn-pos { @apply border-gray-200 text-slate hover:border-sage-dark hover:text-sage-dark hover:bg-sage/5; }
+      .feedback-btn-neg { @apply border-gray-200 text-slate hover:border-red-400 hover:text-red-400 hover:bg-red-50; }
+      .feedback-btn-selected { @apply bg-sage-dark text-white border-sage-dark shadow-md; }
+      .role-pill { @apply px-2.5 py-1 rounded-md text-[10px] uppercase font-bold text-gray-600 transition-colors; }
+      .badge-role-admin { @apply bg-red-100 text-red-700; }
+      .badge-role-analyst { @apply bg-gray-100 text-gray-600; }
+      .badge-role-manager { @apply bg-blue-100 text-blue-700; }
+    </style>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=20"></script>
   </head>
-  <body>
-    <div class="container">
-      <header>
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-          <div style="display: flex; align-items: center;">
-            <img src="/static/logo.png" alt="SPTS Logo" style="height: 48px; width: 48px; object-fit: contain;" />
-            <div>
-              <h1>: Semantic Profiler</h1>
-              <div class="subtitle">
-                Value-Level Knowledge Graph for Robust Text-to-SQL
-              </div>
-            </div>
+  <body class="bg-gradient-to-br from-gray-50 to-gray-200 font-outfit text-charcoal leading-relaxed min-h-screen">
+    <div class="max-w-[1200px] mx-auto py-14 px-6">
+      <header class="flex justify-between items-center mb-14">
+        <div class="flex items-center gap-5">
+          <h1 class="font-dancing text-[48px] text-sage-dark drop-shadow-sm leading-none">SPTS</h1>
+          <div class="w-[1.5px] h-10 bg-gray-200"></div>
+          <div>
+            <h2 class="text-2xl font-bold bg-gradient-to-r from-charcoal to-sage-dark bg-clip-text text-transparent mb-1">Semantic Profiler</h2>
+            <div class="text-[14px] text-slate font-normal">Value-Level Knowledge Graph for Robust Text-to-SQL</div>
           </div>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <span id="userTag" class="user-tag" style="display: none;">
-              <span id="userAvatar" class="user-tag-avatar">?</span>
-              <span id="usernameLabel" class="user-tag-name"></span>
-              <span class="user-tag-divider"></span>
-              <span id="roleBadge" class="role-pill"></span>
-            </span>
-            <button id="adminBtn" onclick="goToAdmin()" style="display: none; background: none; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer;">Admin Portal</button>
-            <button onclick="logout()" style="background: none; border: 1px solid var(--border); color: var(--text); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer;">Logout</button>
-          </div>
+        </div>
+        
+        <div class="flex gap-4 items-center">
+          <span id="userTag" style="display: none;" class="bg-white px-5 py-1.5 rounded-md shadow-sm border border-gray-200 items-center gap-2.5">
+            <span id="userAvatar" class="w-8 h-8 rounded-md bg-sage text-white flex items-center justify-center font-bold">?</span>
+            <span id="usernameLabel" class="font-semibold text-[14px]"></span>
+            <span id="roleBadge" class="bg-gray-100 px-2.5 py-1 rounded-md text-[10px] uppercase font-bold text-gray-600"></span>
+          </span>
+          <button id="adminBtn" style="display: none;" class="px-6 py-2.5 border border-gray-200 rounded-md text-slate text-[14px] font-medium hover:border-sage-dark hover:text-sage-dark hover:bg-sage/5 transition-all" onclick="goToAdmin()">Admin Portal</button>
+          <button class="bg-sage-dark text-white px-6 py-2.5 rounded-md text-[14px] font-semibold hover:bg-[#6d937d] hover:-translate-y-0.5 transition-all shadow-md" onclick="logout()">Logout</button>
         </div>
       </header>
 
-      <div class="search-box">
-        <input
-          type="text"
-          id="query"
-          placeholder="Try a messy query: 'Count schools in LAUSD'"
-        />
-        <button id="runBtn" class="btn-primary" onclick="runQuery()" disabled>Run Experiment</button>
+      <div class="flex gap-4 p-4 bg-white rounded-md shadow-glass mb-12 border border-gray-100">
+        <input type="text" id="query" class="flex-1 border-none px-8 text-lg bg-transparent outline-none text-charcoal" placeholder="Try a messy query: 'Count schools in LAUSD'" />
+        <button id="runBtn" class="bg-sage-dark text-white rounded-md px-10 font-semibold shadow-md transition-all hover:bg-[#6d937d] disabled:opacity-50 disabled:cursor-not-allowed" onclick="runQuery()" disabled>Run Experiment</button>
       </div>
 
-      <div
-        class="grid"
-        id="resultsArea"
-        style="opacity: 0.5; pointer-events: none"
-      >
-        <div class="card" style="border-color: var(--base); border-width: 2px">
-          <div class="card-header">
-            <h2>Baseline Model</h2>
-            <span class="badge badge-base">Standard LLM</span>
+      <div class="grid grid-cols-2 gap-6 transition-opacity duration-500 opacity-50 pointer-events-none" id="resultsArea">
+        <!-- Baseline Card -->
+        <div class="bg-white/70 backdrop-blur-md border border-white/30 rounded-md p-8 shadow-glass hover:-translate-y-1 hover:shadow-premium transition-all">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-xl font-semibold">Baseline Model</h3>
+            <span class="bg-gray-100 px-4 py-1.5 rounded-md text-[12px] font-semibold uppercase text-gray-500 opacity-70">GPT-4 Standard</span>
           </div>
 
-          <span class="label">GENERATED SQL</span>
-          <div class="sql-block" id="base-sql">Waiting for input...</div>
-
-          <span class="label">EXECUTION RESULT</span>
-          <div id="base-result" class="status status-empty">No Data</div>
-
-          <div id="base-feedback" class="feedback-row" style="display: none;">
-            <span class="feedback-label">Was this result helpful?</span>
-            <button id="base-helpful" onclick="submitFeedback('baseline', 'helpful')">&#128077; Helpful</button>
-            <button id="base-unhelpful" onclick="submitFeedback('baseline', 'unhelpful')">&#128078; Not helpful</button>
-          </div>
-        </div>
-
-        <div class="card" style="border-color: var(--success); border-width: 2px; position: relative;">
-          <div class="card-header">
-            <h2 style="color: var(--success)">SPTS</h2>
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <button onclick="toggleRationale()" id="rationaleBtn" class="toggle-btn" title="View AI Reasoning & Raw Prompt" style="display: none;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
-                Under the Hood
-              </button>
-              <span class="badge badge-spts">Graph Enhanced</span>
+          <div class="mb-6">
+            <span class="block text-[13px] font-semibold text-muted mb-3 uppercase tracking-wider">Generated SQL</span>
+            <div class="bg-[#1e1e1e] rounded p-5 relative border-l-4 border-gray-600">
+              <span class="absolute top-2 right-3 text-[10px] font-bold text-gray-600">SQL</span>
+              <code class="text-[#d4d4d4] font-mono text-sm whitespace-pre-wrap" id="base-sql">Waiting for input...</code>
             </div>
           </div>
 
-          <div id="grounding-container" style="display: none; margin-bottom: 1.5rem;">
-            <span class="label">KNOWLEDGE GRAPH REASONING</span>
-            <div id="kg-network" style="height: 250px; border: 1px solid var(--border); border-radius: 8px; background-color: var(--card-bg); margin-top: 0.5rem;"></div>
+          <div class="mb-6">
+            <span class="block text-[13px] font-semibold text-muted mb-3 uppercase tracking-wider">Execution Result</span>
+            <div id="base-result" class="bg-gray-50 rounded-md w-full text-center py-3 text-sm font-semibold text-gray-600">No Data</div>
           </div>
 
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-            <span class="label">GENERATED SQL</span>
-            <button id="copySptsSqlBtn" class="icon-btn" onclick="copySptsSql()" title="Copy generated SQL" style="border: 1px solid var(--border); padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <div id="base-feedback" style="display: none;" class="text-center pt-5 border-t border-dashed border-gray-200 flex-col items-center">
+            <p class="text-[14px] text-slate font-normal mb-4">Was this result helpful?</p>
+            <div class="flex gap-3 justify-center">
+              <button id="base-helpful" class="feedback-btn feedback-btn-pos" onclick="submitFeedback('baseline', 'helpful')">👍 Helpful</button>
+              <button id="base-unhelpful" class="feedback-btn feedback-btn-neg" onclick="submitFeedback('baseline', 'unhelpful')">👎 Not helpful</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SPTS Card -->
+        <div class="bg-white/90 backdrop-blur-md border-2 border-sage rounded-md p-8 shadow-glass hover:-translate-y-1 hover:shadow-premium transition-all">
+          <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-3">
+              <h3 class="text-xl font-bold text-sage-dark"> SPTS</h3>
+              <span class="bg-green-100 px-4 py-1.5 rounded-md text-[12px] font-bold uppercase text-green-800">Graph Enhanced</span>
+            </div>
+            <button onclick="toggleRationale()" id="rationaleBtn" style="display: none;" class="px-4 py-1.5 border border-gray-200 rounded-md text-[12px] font-medium text-slate hover:border-sage-dark hover:text-sage-dark transition-all">
+              Diagnostics
             </button>
           </div>
-          <div class="sql-block" id="spts-sql">Waiting for input...</div>
 
-          <span class="label">EXECUTION RESULT</span>
-          <div id="spts-result" class="status status-success">Ready</div>
+          <div id="grounding-container" style="display: none;" class="mb-8">
+            <span class="block text-[13px] font-semibold text-muted mb-3 uppercase tracking-wider">Knowledge Graph Reasoning</span>
+            <div id="kg-network" class="h-64 border border-gray-200 rounded bg-white"></div>
+          </div>
 
-          <div id="spts-feedback" class="feedback-row" style="display: none;">
-            <span class="feedback-label">Was this result helpful?</span>
-            <button id="spts-helpful" onclick="submitFeedback('spts', 'helpful')">&#128077; Helpful</button>
-            <button id="spts-unhelpful" onclick="submitFeedback('spts', 'unhelpful')">&#128078; Not helpful</button>
+          <div class="mb-6">
+            <div class="flex justify-between items-center mb-3">
+              <span class="block text-[13px] font-semibold text-muted uppercase tracking-wider">Generated SQL</span>
+              <button id="copySptsSqlBtn" class="p-1 px-2.5 border-none text-slate hover:text-sage-dark transition-colors" onclick="copySptsSql()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </button>
+            </div>
+            <div class="bg-[#1e1e1e] rounded p-5 relative border-l-4 border-sage-dark shadow-inner">
+              <span class="absolute top-2 right-3 text-[10px] font-bold text-gray-600">SQL</span>
+              <code class="text-[#d4d4d4] font-mono text-sm whitespace-pre-wrap" id="spts-sql">Waiting for input...</code>
+            </div>
+          </div>
+
+          <div class="mb-6">
+            <span class="block text-[13px] font-semibold text-muted mb-3 uppercase tracking-wider">Execution Result</span>
+            <div id="spts-result" class="bg-green-100 rounded-md w-full text-center py-3 text-sm font-bold text-green-800 uppercase tracking-wide">Ready</div>
+          </div>
+
+          <div id="spts-feedback" style="display: none;" class="text-center pt-5 border-t border-dashed border-gray-200 flex-col items-center">
+            <p class="text-[14px] text-slate font-normal mb-4">Was this result helpful?</p>
+            <div class="flex gap-3 justify-center">
+              <button id="spts-helpful" class="feedback-btn feedback-btn-pos" onclick="submitFeedback('spts', 'helpful')">👍 Helpful</button>
+              <button id="spts-unhelpful" class="feedback-btn feedback-btn-neg" onclick="submitFeedback('spts', 'unhelpful')">👎 Not helpful</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback Section -->
+      <div class="bg-white/70 backdrop-blur-md border border-white/30 rounded-md p-10 shadow-glass mt-10">
+        <div class="flex justify-between items-center mb-8">
+          <h3 class="text-2xl font-bold bg-gradient-to-r from-charcoal to-sage-dark bg-clip-text text-transparent">Qualitative Feedback</h3>
+          <button id="downloadSessionBtn" class="px-6 py-2.5 border border-gray-200 rounded-md text-slate text-[14px] font-medium hover:border-sage-dark hover:text-sage-dark hover:bg-sage/5 transition-all" onclick="downloadSessionLog()">Download session log</button>
+        </div>
+        <div id="feedbackFormContent">
+          <p class="text-[14px] text-slate font-normal mb-6">Your feedback helps us refine the semantic grounding engine.</p>
+          <p id="googleFormHint" class="text-[12px] text-slate mb-4 italic"></p>
+          <a id="googleFormOpenLink" style="display: none;" class="bg-sage-dark text-white rounded-md px-10 py-3.5 font-semibold shadow-md transition-all hover:bg-[#6d937d] mb-6 inline-block" href="#" target="_blank" rel="noopener noreferrer">Open Feedback Form</a>
+          <iframe id="googleFormFrame" style="display: none;" class="w-full min-h-[800px] border border-gray-200 rounded-md shadow-sm" loading="lazy"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diagnostic Flyout (Rationale Panel) -->
+    <div id="rationale-panel" class="fixed top-0 right-[-600px] w-[550px] h-screen bg-white shadow-[-20px_0_50px_rgba(0,0,0,0.1)] transition-all duration-400 ease-in-out z-[2000] flex flex-col">
+      <div class="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+        <h2 class="text-[22px] font-bold">Diagnostic Console</h2>
+        <div class="flex gap-3">
+          <button class="px-4 py-2 border border-gray-200 rounded-md text-slate text-[14px] font-medium hover:border-sage-dark hover:text-sage-dark transition-all" onclick="copyRationale()">Copy JSON</button>
+          <button class="w-10 h-10 flex items-center justify-center text-2xl text-slate hover:text-sage-dark transition-colors" onclick="toggleRationale()">×</button>
+        </div>
+      </div>
+      <div class="p-10 flex-1 overflow-y-auto">
+        <div id="rationale-loader" style="display: none;" class="text-center py-10">
+          <p class="text-[14px] text-slate font-normal italic">Fetching intelligence metrics...</p>
+        </div>
+        <div id="rationale-empty" style="display: none;" class="text-center py-10">
+          <p class="text-[14px] text-slate font-normal italic">No reasoning trace available for this query.</p>
+        </div>
+        <div id="rationale-data" style="display: none;">
+          <div class="grid grid-cols-2 gap-4 mb-10">
+            <div class="bg-gray-50/50 border border-gray-100 rounded-md p-5 text-center">
+              <span class="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Latency</span>
+              <div id="rat-latency" class="text-[26px] font-bold text-sage-dark">-- ms</div>
+            </div>
+            <div class="bg-gray-50/50 border border-gray-100 rounded-md p-5 text-center">
+              <span class="block text-[10px] font-bold text-muted uppercase tracking-widest mb-1">Tokens</span>
+              <div id="rat-tokens" class="text-[26px] font-bold text-sage-dark">--</div>
+            </div>
+          </div>
+          
+          <div class="mb-8">
+            <span class="block text-[13px] font-semibold text-muted mb-3 uppercase tracking-wider">Prompt Context</span>
+            <div class="bg-gray-50 rounded p-5 border border-gray-100 shadow-inner">
+              <pre id="rat-system" class="text-[11px] text-gray-600 word-break-all whitespace-pre-wrap font-mono"></pre>
+            </div>
+          </div>
+          
+          <div>
+            <span class="block text-[13px] font-semibold text-muted mb-3 uppercase tracking-wider">Grounding Engine Logs</span>
+            <div class="bg-red-50/50 rounded p-5 border border-red-100 shadow-inner">
+              <pre id="rat-context" class="text-[11px] text-red-800 word-break-all whitespace-pre-wrap font-mono"></pre>
+            </div>
+          </div>
+
+          <div>
+            <span class="block text-[13px] font-semibold text-muted mb-3 uppercase tracking-wider">Internal Flags</span>
+            <div class="bg-gray-50 rounded p-5 border border-gray-100 shadow-inner">
+              <pre id="rat-flags" class="text-[11px] text-gray-600 word-break-all whitespace-pre-wrap font-mono"></pre>
+            </div>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Rationale Inline Card -->
-    <div id="rationale-panel" class="card rationale-card" style="display: none; margin-top: 2rem; border-color: var(--primary); border-width: 2px;">
-      <div class="card-header" style="border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; padding-bottom: 1rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
-          <h2 style="color: var(--primary); margin: 0; font-size: 1.25rem;">Diagnostic Console: Under the Hood</h2>
-        </div>
-        <div style="display: flex; gap: 0.5rem;">
-          <button onclick="copyRationale()" title="Copy to Clipboard">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            Copy JSON
-          </button>
-          <button onclick="toggleRationale()" title="Close" style="padding: 6px; display: flex; align-items: center; justify-content: center;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-        </div>
-      </div>
-      
-      <div class="rationale-content" id="rationale-content" style="padding: 0;">
-        <div class="skeleton-loader" id="rationale-loader" style="display: none; padding: 1.5rem;">
-          <div class="pulse-line" style="width: 80%"></div>
-          <div class="pulse-line" style="width: 60%"></div>
-          <div class="pulse-line" style="width: 90%"></div>
-          <br>
-          <div class="pulse-line" style="width: 70%"></div>
-          <div class="pulse-line" style="width: 40%"></div>
-        </div>
-        
-        <div id="rationale-data" style="display: none; padding-top: 1rem;">
-          <!-- Metrics -->
-          <div class="metrics-row" style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-            <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
-              <span class="metric-label" style="display: block; font-size: 0.75rem; color: var(--base); margin-bottom: 0.25rem; text-transform: uppercase;">Latency</span>
-              <span class="metric-value" id="rat-latency" style="font-size: 1.5rem; color: var(--primary); font-weight: bold;">-- ms</span>
-            </div>
-            <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
-              <span class="metric-label" style="display: block; font-size: 0.75rem; color: var(--base); margin-bottom: 0.25rem; text-transform: uppercase;">Total Tokens</span>
-              <span class="metric-value" id="rat-tokens" style="font-size: 1.5rem; color: var(--primary); font-weight: bold;">--</span>
-            </div>
-          </div>
-          
-          <!-- Accordion 1 -->
-          <details class="rationale-accordion" open style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1rem;">
-            <summary style="padding: 1rem; cursor: pointer; font-weight: bold; background: var(--card-bg); border-bottom: 1px solid var(--border);">System Prompt & Instructs</summary>
-            <div class="accordion-body" style="padding: 1rem;">
-              <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;"><code id="rat-system" style="font-family: Consolas, monospace; color: var(--text);"></code></pre>
-            </div>
-          </details>
-          
-          <!-- Accordion 2 -->
-          <details class="rationale-accordion" open style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1rem;">
-            <summary style="padding: 1rem; cursor: pointer; font-weight: bold; background: var(--card-bg); border-bottom: 1px solid var(--border);">Injected Context & DB Hints</summary>
-            <div class="accordion-body" style="padding: 1rem;">
-              <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;"><code id="rat-context" class="highlight-green" style="font-family: Consolas, monospace; color: var(--success);"></code></pre>
-            </div>
-          </details>
-          
-          <!-- Accordion 3 -->
-          <details class="rationale-accordion" style="background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
-            <summary style="padding: 1rem; cursor: pointer; font-weight: bold; background: var(--card-bg); border-bottom: 1px solid var(--border);">API Response Flags</summary>
-            <div class="accordion-body" style="padding: 1rem;">
-              <pre style="margin: 0; white-space: pre-wrap; word-break: break-word;"><code id="rat-flags" style="font-family: Consolas, monospace; color: var(--text);"></code></pre>
-            </div>
-          </details>
-        </div>
-        
-        <div id="rationale-empty" class="rationale-empty" style="text-align: center; padding: 2rem; color: var(--base);">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom: 1rem;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-          <p style="margin:0;">Run an experiment to view AI reasoning.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top: 2rem;">
-      <div class="card-header">
-        <h2 style="margin: 0;">Feedback Form</h2>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-          <button id="downloadSessionBtn" class="toggle-btn" onclick="downloadSessionLog()" title="Download your session log file">
-            Download Session Log
-          </button>
-        </div>
-      </div>
-      <div id="feedbackFormContent" style="display: block;">
-        <div id="googleFormHint" class="subtitle" style="margin-bottom: 0.75rem; font-size: 0.8rem;">
-          Feedback form is configured in code and loaded automatically.
-        </div>
-        <a
-          id="googleFormOpenLink"
-          class="btn"
-          href="#"
-          target="_blank"
-          rel="noopener noreferrer"
-          style="display: none; width: fit-content; margin-bottom: 0.75rem; text-decoration: none;"
-        >
-          Open Feedback Form in Google
-        </a>
-        <iframe
-          id="googleFormFrame"
-          title="Qualitative Feedback Form"
-          style="display: none; width: 100%; min-height: 760px; border: 1px solid var(--border); border-radius: 8px;"
-          loading="lazy"
-        ></iframe>
-      </div>
-    </div>
-
-    <script src="/static/app.js?v=10"></script>
+    
+    <!-- Script to handle flyout class toggling with Tailwind -->
+    <script>
+      function toggleRationale() {
+        const panel = document.getElementById('rationale-panel');
+        if (panel.style.right === '0px') {
+          panel.style.right = '-600px';
+        } else {
+          panel.style.right = '0px';
+          if (typeof fetchRationale === 'function') fetchRationale();
+        }
+      }
+    </script>
   </body>
 </html>

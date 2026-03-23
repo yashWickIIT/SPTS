@@ -7,33 +7,50 @@
     <link rel="icon" type="image/png" href="/static/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/static/tailwind.config.js"></script>
+    <script src="/static/login.js"></script>
   </head>
-  <body>
-    <div class="container" style="max-width: 400px; margin-top: 100px;">
-      <header style="margin-bottom: 2rem; text-align: center;">
-        <img src="/static/logo.png" alt="SPTS Logo" style="height: 64px; width: 64px; object-fit: contain; margin-bottom: 0.75rem;" />
-        <h1>SPTS Login</h1>
-        <div class="subtitle">Please enter your credentials to continue</div>
-      </header>
+  <body class="flex items-center justify-center p-10 min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 font-outfit text-charcoal leading-relaxed">
+    <div class="flex w-full max-w-[1000px] min-h-[650px] bg-white rounded-2xl shadow-premium overflow-hidden relative">
+      <div class="flex-1.2 bg-sage bg-[radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.2)_0%,transparent_50%)] flex flex-col justify-center items-center p-14 text-center text-white">
+        <img src="/static/S.png" alt="SPTS" class="w-full max-w-[320px] mb-10 drop-shadow-2xl animate-float" />
+        <h2 class="text-[28px] font-semibold mb-3">Welcome back!</h2>
+        <p class="text-[15px] opacity-85 max-w-[80%]">
+          Log in to your account and continue your semantic research journey.
+        </p>
+        <div class="flex mt-10">
+          <div class="w-6 h-2 bg-white rounded-sm mx-1"></div>
+          <div class="w-2 h-2 bg-white/30 rounded-md mx-1"></div>
+          <div class="w-2 h-2 bg-white/30 rounded-md mx-1"></div>
+        </div>
+      </div>
 
-      <div class="card">
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label for="username" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Username</label>
-          <input type="text" id="username" placeholder="Enter username" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; box-sizing: border-box;" />
+      <div class="flex-1 p-14 flex flex-col justify-center">
+        <div class="text-center mb-8">
+          <h1 class="font-dancing text-[42px] text-sage-dark drop-shadow-sm">LOGIN</h1>
+          <div class="text-[14px] text-slate font-normal mt-1">Semantic Profiling & Tracking System</div>
         </div>
-        <div class="form-group" style="margin-bottom: 1.5rem;">
-          <label for="password" style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Password</label>
-          <input type="password" id="password" placeholder="Enter password" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 0.5rem; box-sizing: border-box;" />
+
+        <div class="mb-7">
+          <label for="username" class="block text-[13px] font-semibold text-muted mb-2 uppercase tracking-wider">User name</label>
+          <input type="text" id="username" class="w-full border-b-2 border-gray-200 py-3 px-1 text-base font-medium text-charcoal bg-transparent outline-none transition-all duration-300 focus:border-sage-dark focus:pl-2" placeholder="Enter your username" />
         </div>
-        <button id="loginBtn" class="btn-primary" onclick="login()" style="width: 100%; margin-bottom: 1rem;">Log In</button>
-        <div id="error-msg" style="color: var(--danger); font-size: 0.875rem; margin-bottom: 1rem; display: none;"></div>
-        <div style="text-align: center; font-size: 0.875rem; color: var(--text-muted);">
-          Don't have an account? <a href="/static/register.html" style="color: var(--secondary); text-decoration: none;">Register here</a>
+        
+        <div class="mb-4">
+          <label for="password" class="block text-[13px] font-semibold text-muted mb-2 uppercase tracking-wider">Password</label>
+          <input type="password" id="password" class="w-full border-b-2 border-gray-200 py-3 px-1 text-base font-medium text-charcoal bg-transparent outline-none transition-all duration-300 focus:border-sage-dark focus:pl-2" placeholder="••••••••" />
+        </div>
+        
+        <div id="error-msg" class="mb-4"></div>
+        
+        <button id="loginBtn" class="w-full py-3.5 px-10 bg-sage-dark text-white rounded-md text-base font-semibold cursor-pointer shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl active:scale-95 mb-6" onclick="login()">Sign in</button>
+        
+        <div class="text-center text-[14px] text-slate font-normal">
+          New to SPTS? <a href="/static/register.html" class="text-sage-dark font-semibold hover:underline">Create an Account</a>
         </div>
       </div>
     </div>
-    <script src="/static/login.js"></script>
   </body>
 </html>

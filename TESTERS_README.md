@@ -1,6 +1,6 @@
 # SPTS Tester Guide
 
-Welcome! You've been asked to test **SPTS (Smart Passenger Transport System)** — a natural-language to SQL query tool.
+Welcome! You've been asked to test **SPTS** — a natural-language to SQL query tool.
 
 ---
 
