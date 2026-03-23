@@ -49,10 +49,6 @@ README.md
 
 # Runtime-mounted assets (do not bake into image)
 data/
-kg/chroma_db/
-
-# Offline tooling not required by API container
-kg/build_vlkg.py
 
 # Logs
 *.log

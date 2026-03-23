@@ -29,7 +29,7 @@ function _initGoogleForm() {
   if (!frame || !hint || !openLink) return;
 
   if (!GOOGLE_FORM_URL?.startsWith('https://forms.gle/')) {
-    hint.textContent = 'Google Form is not configured yet. Set GOOGLE_FORM_URL in app.js.';
+    hint.textContent = 'Google Form is not configured yet.';
     hint.style.color = 'var(--danger)';
     frame.style.display = 'none';
     openLink.style.display = 'none';
@@ -38,8 +38,6 @@ function _initGoogleForm() {
 
   openLink.href = GOOGLE_FORM_URL;
 
-  hint.textContent = 'This form includes file upload, so it must be opened directly in Google Forms.';
-  hint.style.color = 'var(--base)';
   frame.style.display = 'none';
   openLink.style.display = 'inline-flex';
 }
