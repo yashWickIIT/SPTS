@@ -47,9 +47,6 @@ README.md
 *.test.js
 *.test.py
 
-# Runtime-mounted assets (do not bake into image)
-data/
-
 # Logs
 *.log
 logs/

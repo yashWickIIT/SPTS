@@ -17,6 +17,7 @@ RUN pip install -r requirements.docker.txt
 COPY backend ./backend
 COPY frontend ./frontend
 COPY kg ./kg
+COPY data ./data
 
 EXPOSE 8000
 
