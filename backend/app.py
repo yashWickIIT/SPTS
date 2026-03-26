@@ -29,6 +29,8 @@ try:
 except ImportError:
     CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
     PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+    if CURRENT_DIR not in sys.path:
+        sys.path.insert(0, CURRENT_DIR)
     if PROJECT_ROOT not in sys.path:
         sys.path.insert(0, PROJECT_ROOT)
 
@@ -230,12 +232,21 @@ def query(request: Request, payload: QueryPayload, current_user: Annotated[dict,
     user_query = payload.query.strip()
 
     def extract_api_error(sql_text: str):
-        marker = "-- API Error:"
         if not isinstance(sql_text, str):
             return None
-        if marker not in sql_text:
+
+        marker = "API Error:"
+        marker_index = sql_text.find(marker)
+        if marker_index == -1:
             return None
-        return sql_text.split(marker, 1)[1].strip() or "LLM service unavailable"
+
+        detail = sql_text[marker_index + len(marker):]
+        if "*/" in detail:
+            detail = detail.split("*/", 1)[0]
+
+        detail = " ".join(detail.replace("\r", " ").replace("\n", " ").split())
+        detail = detail.strip(" -*\t")
+        return detail or "LLM service unavailable"
     
     # FIX: Use '_' to ignore the returned query string since we only need the mappings now
     _, mappings = grounding.ground_query(user_query)

@@ -15,7 +15,7 @@ import bcrypt
 USERS_DB_PATH = os.path.join(os.path.dirname(__file__), "data", "users.sqlite")
 
 TESTER_USERNAME = "tester"
-TESTER_PASSWORD = "spts-test-2024"
+TESTER_PASSWORD = "spts-test"
 TESTER_ROLE = "researcher"  # researcher can run queries; cannot self-register admin
 
 os.makedirs(os.path.dirname(USERS_DB_PATH), exist_ok=True)

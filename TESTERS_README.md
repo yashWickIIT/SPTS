@@ -10,25 +10,13 @@ Welcome! You've been asked to test **SPTS** — a natural-language to SQL query 
 |---|---|
 | [Docker Desktop](https://www.docker.com/products/docker-desktop/) | Free, install and start it |
 | A **Groq API key** | Free at [console.groq.com](https://console.groq.com) — takes ~1 min to sign up |
-| The image file `spts-test.tar` | Shared with you separately |
+| Internet connection | Docker will pull the image automatically on first run |
 
 ---
 
 ## Step-by-step setup
 
-### 1 — Load the Docker image
-
-Open a terminal (PowerShell on Windows, Terminal on Mac/Linux) and run:
-
-```bash
-docker load -i spts-test.tar
-```
-
-You should see: `Loaded image: spts-test:latest`
-
----
-
-### 2 — Create your API key file
+### 1 — Create your API key file
 
 In the **same folder as this file**, create or update a file called `.env` with this content:
 
@@ -40,7 +28,7 @@ API_KEY=your_actual_groq_api_key_here
 
 ---
 
-### 3 — Start the app
+### 2 — Start the app
 
 ```bash
 docker compose -f docker-compose.test.yml up
@@ -53,17 +41,15 @@ INFO:     Application startup complete.
 
 ---
 
-### 4 — Open the app
+### 3 — Open the app
 
 Go to **[http://localhost:8000](http://localhost:8000)** in your browser.
 
-Login with:
-- **Username:** `tester`
-- **Password:** `spts-test-2024`
+If this is your first time, click **Create an Account**, create your own account, and then log in.
 
 ---
 
-### 5 — Run your queries
+### 4 — Run your queries
 
 Type natural-language questions into the query box and submit them. For example:
 - *"Which airports are in California?"*
@@ -71,7 +57,7 @@ Type natural-language questions into the query box and submit them. For example:
 
 ---
 
-### 6 — Download your session file
+### 5 — Download your session file
 
 After running your queries, click **Download Session Log** in the app.
 
@@ -83,7 +69,7 @@ session_tester.json
 
 If you click download before running a query, the app will prompt you to run at least one query first.
 
-### 7 — Upload to Google Form
+### 6 — Upload to Google Form
 
 Open the feedback form section in the app and submit your responses.
 
@@ -141,6 +127,8 @@ By default, the image loads a sample flight/birds database. If you want to conne
    ```
 
 > **Note:** The first time you start up with a new database, it may take some time to load. SPTS has to build a Vector-Level Knowledge Graph (VLKG) of your entirely new schema in the background to learn the definitions!
+
+If you do not want to use your own database, you can skip all of the steps above. The default sample database 'califonia schools BIRD_dev_mini' is already included in the Docker image.
 
 ---
 
