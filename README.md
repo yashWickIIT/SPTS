@@ -1,85 +1,122 @@
-# SPTS: Domain-Adaptive Semantic Profiler for Text-to-SQL
+# SPTS: Semantic Profiler for Text-to-SQL
 
-**Research Prototype for Value-Level Knowledge Graph Grounding**
+Research prototype for value-level grounding in Text-to-SQL workflows.
 
 ## Overview
-SPTS (Semantic Profiler for Text-to-SQL) addresses the critical research gap of **Value Linking** in Natural Language Interfaces to Databases (NLIDB). 
 
-While modern Large Language Models (LLMs) excel at generating correct SQL syntax (*Schema Linking*), they frequently fail when user queries contain ambiguous, abbreviated, or "dirty" data values that do not strictly match database entries (e.g., searching for "LAUSD" when the database contains "Los Angeles Unified").
+SPTS is a FastAPI-based system that compares a baseline Text-to-SQL path with a graph-enhanced path.
+It builds and uses a Value-Level Knowledge Graph (VLKG) to resolve noisy or abbreviated query entities into canonical database values before SQL generation.
 
-This prototype demonstrates a novel **Offline Semantic Profiling** approach that constructs a **Value-Level Knowledge Graph (VLKG)** to resolve these ambiguities *before* SQL generation, significantly improving execution accuracy. For this project publicly available bird mini dev data set is used.
----
-
-## Project Structure
+## Current Project Structure
 
 ```text
 SPTS/
-├── backend/               # FastAPI Inference Engine
-│   ├── app.py             # Main API & Server
-│   ├── grounding.py       # Entity Resolution Logic 
-│   ├── text_to_sql.py     # LLM Interaction Layer
-│   └── database.py        # SQL Execution Engine
-│
-├── frontend/              # Dashboard
-│   ├── index.html         # Main User Interface
-│   ├── app.js             # Client Logic & Visualization
-│   └── styles.css         # Styling
-│
-├── kg/                    # Offline Profiler Module
-│   ├── build_vlkg.py      # The Semantic Profiler Script
-│   └── vlkg.json          # The Generated Knowledge Graph
-│
+├── backend/
+│   ├── app.py
+│   ├── auth.py
+│   ├── config.py
+│   ├── database.py
+│   ├── db_client.py
+│   ├── db_users.py
+│   ├── embedding_util.py
+│   ├── grounding.py
+│   ├── sanitizer.py
+│   ├── session_logger.py
+│   └── text_to_sql.py
+├── frontend/
+│   ├── index.html
+│   ├── app.js
+│   ├── admin.html
+│   ├── login.html
+│   ├── register.html
+│   └── S.png
+├── kg/
+│   ├── __init__.py
+│   ├── build_vlkg.py
+│   ├── update_vlkg.py
+│   └── chroma_db/
 ├── data/
-│   └── bird_mini_dev.sqlite  # The Target Database (California Schools)
-│
-├── requirements.txt       # Python Dependencies
-└── README.md              # Documentation
+│   ├── bird_mini_dev.sqlite
+│   └── users.sqlite
+├── sessions/
+├── Dockerfile
+├── Dockerfile.test
+├── docker-compose.yml
+├── docker-compose.test.yml
+├── evaluate.py
+├── metrics_calculator.py
+├── requirements.txt
+├── requirements.docker.txt
+├── README.md
+└── TESTERS_README.md
+```
 
 ## Environment Configuration
 
-**Single `.env` file at workspace root** — All components (backend, KG updater, tester CLI) load configuration from this one file via `backend/config.py`. This ensures consistent behavior across local dev, Docker, and utilities.
+SPTS uses a single workspace-level `.env` file loaded by `backend/config.py`.
 
-### Setup Instructions
+### Required
 
-1. **Verify `.env` exists** at the project root with your API key:
-   ```bash
-   cat .env
-   ```
+```env
+API_KEY=your_groq_api_key_here
+```
 
-2. **Required variables** (already configured in `.env`):
-   ```env
-   # LLM API key (get from https://console.groq.com)
-   API_KEY=your_groq_api_key_here
+### Common Optional Settings
 
-   # Database paths
-   SPTS_MAIN_DB_PATH=data/bird_mini_dev.sqlite
-   SPTS_CHROMA_PATH=kg/chroma_db
+```env
+SPTS_MAIN_DB_PATH=data/bird_mini_dev.sqlite
+SPTS_CHROMA_PATH=kg/chroma_db
+SPTS_SESSIONS_DIR=/app/sessions
+SPTS_USERS_DB_PATH=/app/sessions/users.sqlite
+SECRET_KEY=spts-super-secret-key-12345
+```
 
-   # Authentication & sessions
-   SECRET_KEY=spts-super-secret-key-12345
-   SPTS_SESSIONS_DIR=/app/sessions
-   ```
+### Database URL Precedence
 
-3. **Optional variables** (advanced database/embedding config):
-   - Add them directly to `.env` as needed
+1. If `SPTS_DATABASE_URL` is set, it is used.
+2. Otherwise, `SPTS_MAIN_DB_PATH` is used.
 
-### Database Connection Precedence
+For SQLite, the main query database is enforced to read-only mode (`mode=ro`).
 
-1. If `SPTS_DATABASE_URL` is set in `.env` → Use external database
-   - PostgreSQL: `postgresql+psycopg2://user:pass@host:5432/dbname`
-   - MySQL: `mysql+pymysql://user:pass@host:3306/dbname`
-   - SQL Server: `mssql+pyodbc://user:pass@host:1433/dbname?driver=...`
-2. Otherwise → Use local SQLite at `SPTS_MAIN_DB_PATH`
+## Run Locally
 
-### Important Notes
+From the repository root:
 
-- **Do not commit `.env` to version control** (contains sensitive keys)
-- Old files (`.env.example`, `.env.test`) were removed; use only `.env`
-- All modules import from `backend/config.py` — changes to `.env` take effect immediately at next startup
+```bash
+uvicorn backend.app:app --reload
+```
 
-## Storage Path Configuration
+Open `http://localhost:8000`.
 
-Decision for this prototype:
-- Keep the `data/` folder in the repository workflow.
-- Avoid hardcoded paths in source code by configuring DB/vector storage via `.env`.
-- Support external enterprise databases with zero Python code changes.
+## Run with Docker (Developer)
+
+```bash
+docker compose -f docker-compose.yml up --build
+```
+
+This profile mounts local `./data` and `./sessions` into the container.
+
+## Run with Docker (Tester)
+
+```bash
+docker compose -f docker-compose.test.yml up
+```
+
+Tester-specific setup and usage instructions are documented in `TESTERS_README.md`.
+
+## Evaluation
+
+Run:
+
+```bash
+python evaluate.py
+```
+
+Artifacts:
+- `evaluation_log.json`
+- `final_thesis_metrics.json`
+
+## Notes
+
+- Do not commit `.env` files or real API keys.
+- Ensure Docker images used by testers include `data/` and `kg/chroma_db/` so the default workflow is functional.
