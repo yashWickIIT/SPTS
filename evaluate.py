@@ -9,15 +9,59 @@ from metrics_calculator import compare_execution_results, evaluate_etm
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+
+def retry_with_backoff(func):
+    """Decorator to retry LLM calls with exponential backoff if rate limited."""
+
+    def wrapper(*args, **kwargs):
+        max_retries = 5
+        wait_time = 2.0
+
+        for attempt in range(max_retries):
+            try:
+                result = func(*args, **kwargs)
+                response_str = (
+                    str(result.get("sql", ""))
+                    if isinstance(result, dict)
+                    else str(result or "")
+                )
+                if "-- API Error:" in response_str:
+                    raise ValueError(f"API Error Detected: {response_str.strip()}")
+
+                return result
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    print(f"  -> Final attempt failed for {func.__name__}: {e}")
+                    return result if "result" in locals() else ""
+
+                print(
+                    f"  -> API Limit/Error in {func.__name__}. Waiting {wait_time}s before retry {attempt + 1}/{max_retries}..."
+                )
+                time.sleep(wait_time)
+                wait_time *= 2
+
+    return wrapper
+
+
 try:
     from backend.grounding import ground_query
-    from backend.text_to_sql import baseline_text_to_sql, fix_sql_with_llm, spts_text_to_sql
+    from backend.text_to_sql import (
+        baseline_text_to_sql,
+        fix_sql_with_llm,
+        spts_text_to_sql,
+    )
+
+    ground_query = retry_with_backoff(ground_query)
+    baseline_text_to_sql = retry_with_backoff(baseline_text_to_sql)
+    fix_sql_with_llm = retry_with_backoff(fix_sql_with_llm)
+    spts_text_to_sql = retry_with_backoff(spts_text_to_sql)
+
 except ImportError:
     print("Error: Could not import evaluator dependencies from backend.")
     print("Please ensure you are running this from the project root directory.")
     exit(1)
 
-API_DELAY_SECONDS = 2.0
+API_DELAY_SECONDS = 4.0
 DEFAULT_DB_ID = "bird_mini_dev"
 DEFAULT_DATASET = os.path.join("data", "bird_dev_sample.json")
 DEFAULT_LOG = "evaluation_log.json"
@@ -47,7 +91,11 @@ def execute_raw_sql(sql: str, db_id: str) -> dict:
 
     db_path = resolve_db_path(db_id)
     if not db_path:
-        return {"success": False, "error": f"Database {db_id}.sqlite not found.", "data": []}
+        return {
+            "success": False,
+            "error": f"Database {db_id}.sqlite not found.",
+            "data": [],
+        }
 
     try:
         uri = f"file:{os.path.abspath(db_path)}?mode=ro"
@@ -97,7 +145,9 @@ def _auto_correct_spts(
     if result.get("success"):
         return sql, result
     try:
-        fixed_sql = fix_sql_with_llm(question, sql, result.get("error", "Unknown error"), mappings=mappings)
+        fixed_sql = fix_sql_with_llm(
+            question, sql, result.get("error", "Unknown error"), mappings=mappings
+        )
     except Exception as error:
         print(f"  -> SPTS auto-correction failed: {error}")
         return sql, result
@@ -109,7 +159,9 @@ def _auto_correct_spts(
     return fixed_sql, fixed_result
 
 
-def _evaluate_prediction(gold_result: dict, gold_sql: str, predicted_sql: str, db_id: str) -> tuple[dict, dict]:
+def _evaluate_prediction(
+    gold_result: dict, gold_sql: str, predicted_sql: str, db_id: str
+) -> tuple[dict, dict]:
     pred_result = execute_raw_sql(predicted_sql, db_id)
     etm = evaluate_etm(gold_sql, predicted_sql)
     metrics = {
@@ -146,9 +198,13 @@ def _finalize_summary(summary: dict) -> dict:
     return {
         "Execution_Accuracy_EXE": _percentage(summary["exe_correct"], scored_queries),
         "Execution_Accuracy_EXE_Count": summary["exe_correct"],
-        "Enhanced_Tree_Matching_ETM_Exact": _percentage(summary["etm_exact"], scored_queries),
+        "Enhanced_Tree_Matching_ETM_Exact": _percentage(
+            summary["etm_exact"], scored_queries
+        ),
         "Enhanced_Tree_Matching_ETM_Exact_Count": summary["etm_exact"],
-        "Average_Structural_F1_Score": _percentage(summary["etm_f1_total"], scored_queries),
+        "Average_Structural_F1_Score": _percentage(
+            summary["etm_f1_total"], scored_queries
+        ),
         "Average_Structural_F1_Score_Sum": round(summary["etm_f1_total"], 4),
         "Scored_Queries": scored_queries,
         "API_Error_Queries": summary["api_error_queries"],
@@ -164,9 +220,19 @@ def _extract_api_error(sql_text: str) -> str | None:
 
 def _improvement_block(baseline: dict, spts: dict) -> dict:
     return {
-        "Execution_Accuracy_EXE": round(spts["Execution_Accuracy_EXE"] - baseline["Execution_Accuracy_EXE"], 2),
-        "Enhanced_Tree_Matching_ETM_Exact": round(spts["Enhanced_Tree_Matching_ETM_Exact"] - baseline["Enhanced_Tree_Matching_ETM_Exact"], 2),
-        "Average_Structural_F1_Score": round(spts["Average_Structural_F1_Score"] - baseline["Average_Structural_F1_Score"], 2),
+        "Execution_Accuracy_EXE": round(
+            spts["Execution_Accuracy_EXE"] - baseline["Execution_Accuracy_EXE"], 2
+        ),
+        "Enhanced_Tree_Matching_ETM_Exact": round(
+            spts["Enhanced_Tree_Matching_ETM_Exact"]
+            - baseline["Enhanced_Tree_Matching_ETM_Exact"],
+            2,
+        ),
+        "Average_Structural_F1_Score": round(
+            spts["Average_Structural_F1_Score"]
+            - baseline["Average_Structural_F1_Score"],
+            2,
+        ),
     }
 
 
@@ -254,7 +320,9 @@ def run_evaluation(
             }
             baseline_summary["api_error_queries"] += 1
         else:
-            baseline_result, baseline_metrics = _evaluate_prediction(gold_result, gold_sql, baseline_sql, db_id)
+            baseline_result, baseline_metrics = _evaluate_prediction(
+                gold_result, gold_sql, baseline_sql, db_id
+            )
             baseline_metrics["api_error"] = False
             _update_summary(baseline_summary, baseline_metrics)
 
@@ -262,8 +330,12 @@ def run_evaluation(
             time.sleep(delay_seconds)
 
         spts_sql, mappings = _generate_spts_sql(question)
-        spts_result, spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, db_id)
-        spts_sql, spts_result = _auto_correct_spts(question, spts_sql, spts_result, mappings, db_id)
+        spts_result, spts_metrics = _evaluate_prediction(
+            gold_result, gold_sql, spts_sql, db_id
+        )
+        spts_sql, spts_result = _auto_correct_spts(
+            question, spts_sql, spts_result, mappings, db_id
+        )
 
         spts_api_error = _extract_api_error(spts_sql)
         if spts_api_error:
@@ -276,7 +348,9 @@ def run_evaluation(
             }
             spts_summary["api_error_queries"] += 1
         else:
-            spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, db_id)[1]
+            spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, db_id)[
+                1
+            ]
             spts_metrics["api_error"] = False
             _update_summary(spts_summary, spts_metrics)
 
@@ -308,33 +382,66 @@ def run_evaluation(
         "Total_Queries_Tested": total_queries,
         "Baseline": baseline_metrics,
         "SPTS": spts_metrics,
-        "Improvement_SPTS_minus_Baseline": _improvement_block(baseline_metrics, spts_metrics),
+        "Improvement_SPTS_minus_Baseline": _improvement_block(
+            baseline_metrics, spts_metrics
+        ),
     }
 
     with open(final_metrics_path, "w", encoding="utf-8") as file:
         json.dump(final_metrics, file, indent=4)
 
     print("\nEvaluation Complete!")
-    print(f"  Baseline EXE: {final_metrics['Baseline']['Execution_Accuracy_EXE']}% ({final_metrics['Baseline']['Execution_Accuracy_EXE_Count']}/{final_metrics['Baseline']['Scored_Queries']})")
-    print(f"  Baseline ETM: {final_metrics['Baseline']['Enhanced_Tree_Matching_ETM_Exact']}% ({final_metrics['Baseline']['Enhanced_Tree_Matching_ETM_Exact_Count']}/{final_metrics['Baseline']['Scored_Queries']})")
-    print(f"  Baseline F1:  {final_metrics['Baseline']['Average_Structural_F1_Score']}%")
-    print(f"  SPTS EXE:     {final_metrics['SPTS']['Execution_Accuracy_EXE']}% ({final_metrics['SPTS']['Execution_Accuracy_EXE_Count']}/{final_metrics['SPTS']['Scored_Queries']})")
-    print(f"  SPTS ETM:     {final_metrics['SPTS']['Enhanced_Tree_Matching_ETM_Exact']}% ({final_metrics['SPTS']['Enhanced_Tree_Matching_ETM_Exact_Count']}/{final_metrics['SPTS']['Scored_Queries']})")
+    print(
+        f"  Baseline EXE: {final_metrics['Baseline']['Execution_Accuracy_EXE']}% ({final_metrics['Baseline']['Execution_Accuracy_EXE_Count']}/{final_metrics['Baseline']['Scored_Queries']})"
+    )
+    print(
+        f"  Baseline ETM: {final_metrics['Baseline']['Enhanced_Tree_Matching_ETM_Exact']}% ({final_metrics['Baseline']['Enhanced_Tree_Matching_ETM_Exact_Count']}/{final_metrics['Baseline']['Scored_Queries']})"
+    )
+    print(
+        f"  Baseline F1:  {final_metrics['Baseline']['Average_Structural_F1_Score']}%"
+    )
+    print(
+        f"  SPTS EXE:     {final_metrics['SPTS']['Execution_Accuracy_EXE']}% ({final_metrics['SPTS']['Execution_Accuracy_EXE_Count']}/{final_metrics['SPTS']['Scored_Queries']})"
+    )
+    print(
+        f"  SPTS ETM:     {final_metrics['SPTS']['Enhanced_Tree_Matching_ETM_Exact']}% ({final_metrics['SPTS']['Enhanced_Tree_Matching_ETM_Exact_Count']}/{final_metrics['SPTS']['Scored_Queries']})"
+    )
     print(f"  SPTS F1:      {final_metrics['SPTS']['Average_Structural_F1_Score']}%")
-    print(f"  Delta EXE:    {final_metrics['Improvement_SPTS_minus_Baseline']['Execution_Accuracy_EXE']}%")
-    print(f"  Delta ETM:    {final_metrics['Improvement_SPTS_minus_Baseline']['Enhanced_Tree_Matching_ETM_Exact']}%")
-    print(f"  Delta F1:     {final_metrics['Improvement_SPTS_minus_Baseline']['Average_Structural_F1_Score']}%")
+    print(
+        f"  Delta EXE:    {final_metrics['Improvement_SPTS_minus_Baseline']['Execution_Accuracy_EXE']}%"
+    )
+    print(
+        f"  Delta ETM:    {final_metrics['Improvement_SPTS_minus_Baseline']['Enhanced_Tree_Matching_ETM_Exact']}%"
+    )
+    print(
+        f"  Delta F1:     {final_metrics['Improvement_SPTS_minus_Baseline']['Average_Structural_F1_Score']}%"
+    )
     print(f"  Baseline API errors: {final_metrics['Baseline']['API_Error_Queries']}")
     print(f"  SPTS API errors:     {final_metrics['SPTS']['API_Error_Queries']}")
     print(f"Logs saved to {output_log_path} and {final_metrics_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run baseline vs SPTS evaluation with EXE and ETM metrics.")
-    parser.add_argument("--dataset", default=DEFAULT_DATASET, help="Path to the evaluation dataset JSON.")
-    parser.add_argument("--log", default=DEFAULT_LOG, help="Path to write per-query evaluation logs.")
-    parser.add_argument("--metrics", default=DEFAULT_METRICS, help="Path to write summary metrics JSON.")
-    parser.add_argument("--delay", type=float, default=API_DELAY_SECONDS, help="Delay between LLM calls in seconds.")
+    parser = argparse.ArgumentParser(
+        description="Run baseline vs SPTS evaluation with EXE and ETM metrics."
+    )
+    parser.add_argument(
+        "--dataset",
+        default=DEFAULT_DATASET,
+        help="Path to the evaluation dataset JSON.",
+    )
+    parser.add_argument(
+        "--log", default=DEFAULT_LOG, help="Path to write per-query evaluation logs."
+    )
+    parser.add_argument(
+        "--metrics", default=DEFAULT_METRICS, help="Path to write summary metrics JSON."
+    )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=API_DELAY_SECONDS,
+        help="Delay between LLM calls in seconds.",
+    )
     args = parser.parse_args()
     run_evaluation(args.dataset, args.log, args.metrics, args.delay)
 

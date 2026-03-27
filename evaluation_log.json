@@ -1,32 +1,32 @@
 [
     {
         "query_id": 1,
-        "question": "How many schools are in the database?",
+        "question": "Which schools served a grade span of Kindergarten to 9th grade in the county of Los Angeles and what is its Percent (%) Eligible FRPM (Ages 5-17)?",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools",
+        "gold_sql": "SELECT T2.School, T1.`FRPM Count (Ages 5-17)` * 100 / T1.`Enrollment (Ages 5-17)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'Los Angeles' AND T2.GSserved = 'K-9'",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools",
+            "predicted_sql": "SELECT \"School Name\", (Percent (%) Eligible FRPM (Ages 5-17)) \nFROM frpm \nWHERE \"County Name\" = 'Los Angeles' \nAND \"Low Grade\" = 'K' \nAND \"High Grade\" = '9'",
             "execution_result": {
-                "pred_success": true,
-                "pred_error": null
+                "pred_success": false,
+                "pred_error": "near \"%\": syntax error"
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.0,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools",
+            "predicted_sql": "SELECT T1.`School Name`, T1.`Percent (%) Eligible FRPM (Ages 5-17)` \nFROM frpm AS T1 \nWHERE T1.`County Name` = 'Los Angeles' \nAND T1.`Low Grade` = 'K' \nAND T1.`High Grade` = '9'",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.2105,
                 "api_error": false
             },
             "mappings": []
@@ -34,32 +34,32 @@
     },
     {
         "query_id": 2,
-        "question": "How many schools have an Active status?",
+        "question": "Between San Diego and Santa Barbara, which county offers the most number of schools that does not offer physical building? Indicate the amount.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE StatusType = 'Active'",
+        "gold_sql": "SELECT County, COUNT(Virtual) FROM schools WHERE (County = 'San Diego' OR County = 'Santa Barbara') AND Virtual = 'F' GROUP BY County ORDER BY COUNT(Virtual) DESC LIMIT 1",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Active'",
+            "predicted_sql": "SELECT \"County\", (COUNT(*)) \nFROM schools \nWHERE Virtual = 'Y' AND \"County\" IN ('San Diego', 'Santa Barbara') \nGROUP BY \"County\" \nORDER BY (COUNT(*)) DESC \nLIMIT 1",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Active'",
+            "predicted_sql": "SELECT \"County\", COUNT(*) \nFROM schools \nWHERE Virtual = 'Y' \nAND \"County\" IN ('San Diego', 'Santa Barbara') \nGROUP BY \"County\" \nORDER BY COUNT(*) DESC \nLIMIT 1",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7,
                 "api_error": false
             },
             "mappings": []
@@ -67,182 +67,190 @@
     },
     {
         "query_id": 3,
-        "question": "How many schools have a Closed status?",
+        "question": "List the names of schools with more than 30 difference in enrollements between K-12 and ages 5-17? Please also give the full street adress of the schools.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE StatusType = 'Closed'",
+        "gold_sql": "SELECT T1.School, T1.Street FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.`Enrollment (K-12)` - T2.`Enrollment (Ages 5-17)` > 30",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Closed'",
+            "predicted_sql": "SELECT T1.`School Name`, T2.Street, T2.MailStreet \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE (T1.`Enrollment (K-12)`) - (T1.`Enrollment (Ages 5-17)`) > 30 \nOR (T1.`Enrollment (Ages 5-17)`) - (T1.`Enrollment (K-12)`) > 30",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.6364,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE StatusType = 'Closed'",
+            "predicted_sql": "SELECT T1.`School Name`, T2.Street, T2.MailStreet \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE (T1.`Enrollment (K-12)` - T1.`Enrollment (Ages 5-17)`) > 30 \nOR (T1.`Enrollment (Ages 5-17)` - T1.`Enrollment (K-12)`) > 30",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.6364,
                 "api_error": false
             },
-            "mappings": []
+            "mappings": [
+                {
+                    "original": "K-12",
+                    "grounded": "K-12 Schools (Public)",
+                    "table": "schools",
+                    "column": "SOCType",
+                    "distance": 0.2649,
+                    "type": "Vector Semantic Match"
+                }
+            ]
         }
     },
     {
         "query_id": 4,
-        "question": "How many schools are in Alameda county?",
+        "question": "Give the names of the schools with the percent eligible for free meals in K-12 is more than 0.1 and test takers whose test score is greater than or equal to 1500?",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Alameda'",
+        "gold_sql": "SELECT T2.`School Name` FROM satscores AS T1 INNER JOIN frpm AS T2 ON T1.cds = T2.CDSCode WHERE CAST(T2.`Free Meal Count (K-12)` AS REAL) / T2.`Enrollment (K-12)` > 0.1 AND T1.NumGE1500 > 0",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Alameda'",
+            "predicted_sql": "SELECT T1.\"School Name\" \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE (T1.\"Percent (%) Eligible Free (K-12)\") > 0.1 \nAND T2.NumGE1500 > 0",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
                 "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7368,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Alameda'",
+            "predicted_sql": "SELECT T1.\"School Name\" \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.`Percent (%) Eligible Free (K-12)` > 0.1 \nAND T2.NumGE1500 > 0",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
                 "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
-                "api_error": false
-            },
-            "mappings": [
-                {
-                    "original": "Alameda county",
-                    "grounded": "Alameda",
-                    "table": "schools",
-                    "column": "County",
-                    "distance": 0.0,
-                    "type": "Vector Semantic Match"
-                }
-            ]
-        }
-    },
-    {
-        "query_id": 5,
-        "question": "How many schools are in Amador county?",
-        "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Amador'",
-        "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Amador'",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
-                "api_error": false
-            }
-        },
-        "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Amador'",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
-                "api_error": false
-            },
-            "mappings": [
-                {
-                    "original": "Amador county",
-                    "grounded": "Amador",
-                    "table": "schools",
-                    "column": "County",
-                    "distance": 0.0,
-                    "type": "Vector Semantic Match"
-                }
-            ]
-        }
-    },
-    {
-        "query_id": 6,
-        "question": "How many schools are in Butte county?",
-        "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Butte'",
-        "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Butte'",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
-                "api_error": false
-            }
-        },
-        "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE County = 'Butte'",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7368,
                 "api_error": false
             },
             "mappings": []
         }
     },
     {
-        "query_id": 7,
-        "question": "What is the average math SAT score across all schools?",
+        "query_id": 5,
+        "question": "What is the eligible free or reduced price meal rate for the top 5 schools in grades 1-12 with the highest free or reduced price meal count of the schools with the ownership code 66?",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT AVG(AvgScrMath) FROM satscores",
+        "gold_sql": "SELECT CAST(T1.`FRPM Count (K-12)` AS REAL) / T1.`Enrollment (K-12)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.SOC = 66 ORDER BY T1.`FRPM Count (K-12)` DESC LIMIT 5",
         "baseline": {
-            "predicted_sql": "SELECT (AVG(AvgScrMath)) FROM satscores",
+            "predicted_sql": "SELECT T1.\"School Name\", (T1.`FRPM Count (K-12)`) / (T1.`Enrollment (K-12)`) * 100 \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.EdOpsCode = '66' \nORDER BY T1.`FRPM Count (K-12)` DESC \nLIMIT 5",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8571,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (AVG(AvgScrMath)) FROM satscores",
+            "predicted_sql": "SELECT \"School Name\", (MAX(\"FRPM Count (K-12)\")) \nFROM frpm \nWHERE \"CDSCode\" IN (SELECT CDSCode FROM schools WHERE EdOpsCode = '66') \nGROUP BY \"School Name\" \nORDER BY (MAX(\"FRPM Count (K-12)\")) DESC \nLIMIT 5",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.381,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 6,
+        "question": "What is the Percent (%) Eligible Free (K-12) in the school administered by an administrator whose first name is Alusine. List the district code of the school.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T1.`Free Meal Count (K-12)` * 100 / T1.`Enrollment (K-12)`, T1.`District Code` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.AdmFName1 = 'Alusine'",
+        "baseline": {
+            "predicted_sql": "SELECT T1.`District Code`, T1.`Percent (%) Eligible Free (K-12)` \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.AdmFName1 = 'Alusine'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8235,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.`District Code`, T1.`Percent (%) Eligible Free (K-12)` \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.SOCType = 'K-12 Schools (Public)' \nAND (T2.AdmFName1 = 'Alusine' OR T2.AdmFName2 = 'Alusine' OR T2.AdmFName3 = 'Alusine')",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.6087,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Alusine",
+                    "grounded": "Alusine",
+                    "table": "schools",
+                    "column": "School",
+                    "distance": 0.0,
+                    "type": "LLM Fallback (Hint)"
+                },
+                {
+                    "original": "K-12",
+                    "grounded": "K-12 Schools (Public)",
+                    "table": "schools",
+                    "column": "SOCType",
+                    "distance": 0.2649,
+                    "type": "Vector Semantic Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 7,
+        "question": "Among the schools with an SAT excellence rate of over 0.3, what is the highest eligible free rate for students aged 5-17?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT MAX(CAST(T1.`Free Meal Count (Ages 5-17)` AS REAL) / T1.`Enrollment (Ages 5-17)`) FROM frpm AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE CAST(T2.NumGE1500 AS REAL) / T2.NumTstTakr > 0.3",
+        "baseline": {
+            "predicted_sql": "SELECT MAX(T1.`Percent (%) Eligible Free (Ages 5-17)`) \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE (CAST(T2.NumGE1500 AS REAL) / T2.NumTstTakr) > 0.3",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8421,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT MAX(T1.`Percent (%) Eligible Free (Ages 5-17)`) \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE (CAST(T2.NumGE1500 AS REAL) / CAST(T2.NumTstTakr AS REAL)) > 0.3",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8421,
                 "api_error": false
             },
             "mappings": []
@@ -250,32 +258,32 @@
     },
     {
         "query_id": 8,
-        "question": "What is the average reading SAT score across all schools?",
+        "question": "What is the eligible free rate of the 10th and 11th schools with the highest enrolment for students in grades 1 through 12?",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT AVG(AvgScrRead) FROM satscores",
+        "gold_sql": "SELECT CAST(`Free Meal Count (K-12)` AS REAL) / `Enrollment (K-12)` FROM frpm ORDER BY `Enrollment (K-12)` DESC LIMIT 9, 2",
         "baseline": {
-            "predicted_sql": "SELECT (AVG(AvgScrRead)) FROM satscores",
+            "predicted_sql": "SELECT (SUM(`Free Meal Count (K-12)`) / SUM(`Enrollment (K-12)`)) * 100 \nFROM frpm \nORDER BY `Enrollment (K-12)` DESC \nLIMIT 10, 2",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (AVG(AvgScrRead)) FROM satscores",
+            "predicted_sql": "SELECT (SUM(\"Free Meal Count (K-12)\") / SUM(\"Enrollment (K-12)\") * 100) \nFROM frpm \nORDER BY \"Enrollment (K-12)\" DESC \nLIMIT 1 OFFSET 9",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
                 "api_error": false
             },
             "mappings": []
@@ -283,65 +291,74 @@
     },
     {
         "query_id": 9,
-        "question": "How many schools have an average math SAT score above 500?",
+        "question": "How many schools with an average score in Math greater than 400 in the SAT test are exclusively virtual?",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM satscores WHERE AvgScrMath > 500",
+        "gold_sql": "SELECT COUNT(DISTINCT T2.School) FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.Virtual = 'F' AND T1.AvgScrMath > 400",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM satscores WHERE AvgScrMath > 500",
+            "predicted_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE Virtual = 'Y' \nAND CDSCode IN (\n  SELECT cds \n  FROM satscores \n  WHERE AvgScrMath > 400\n)",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5556,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM satscores WHERE AvgScrMath > 500",
+            "predicted_sql": "SELECT COUNT(*) FROM schools \nWHERE Virtual = 'Yes' \nAND CDSCode IN (\n    SELECT cds FROM satscores \n    WHERE AvgScrMath > 400\n)",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5556,
                 "api_error": false
             },
-            "mappings": []
+            "mappings": [
+                {
+                    "original": "Virtual",
+                    "grounded": "Yes",
+                    "table": "schools",
+                    "column": "Virtual",
+                    "distance": 0.0,
+                    "type": "LLM Fallback (Hint)"
+                }
+            ]
         }
     },
     {
         "query_id": 10,
-        "question": "Which school has the highest average SAT reading score?",
+        "question": "Please list the codes of the schools with a total enrollment of over 500.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT sname FROM satscores ORDER BY AvgScrRead DESC LIMIT 1",
+        "gold_sql": "SELECT T2.CDSCode FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.`Enrollment (K-12)` + T2.`Enrollment (Ages 5-17)` > 500",
         "baseline": {
-            "predicted_sql": "SELECT sname FROM satscores ORDER BY (AvgScrRead) DESC LIMIT 1",
+            "predicted_sql": "SELECT CDSCode FROM frpm WHERE (Enrollment (K-12)) > 500",
             "execution_result": {
-                "pred_success": true,
-                "pred_error": null
+                "pred_success": false,
+                "pred_error": "no such function: Enrollment"
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.3636,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT sname FROM satscores ORDER BY (AvgScrRead) DESC LIMIT 1",
+            "predicted_sql": "SELECT CDSCode FROM frpm WHERE (Enrollment (K-12)) > 500",
             "execution_result": {
-                "pred_success": true,
-                "pred_error": null
+                "pred_success": false,
+                "pred_error": "no such function: Enrollment"
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.3636,
                 "api_error": false
             },
             "mappings": []
@@ -349,107 +366,125 @@
     },
     {
         "query_id": 11,
-        "question": "Which 5 counties have the most schools?",
+        "question": "Rank schools by their average score in Writing where the score is greater than 499, showing their charter numbers.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT County, COUNT(*) AS cnt FROM schools GROUP BY County ORDER BY cnt DESC LIMIT 5",
+        "gold_sql": "SELECT CharterNum, AvgScrWrite, RANK() OVER (ORDER BY AvgScrWrite DESC) AS WritingScoreRank FROM schools AS T1  INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE T2.AvgScrWrite > 499 AND CharterNum is not null",
         "baseline": {
-            "predicted_sql": "SELECT County, (COUNT(*)) \nFROM schools \nGROUP BY County \nORDER BY (COUNT(*)) DESC \nLIMIT 5",
+            "predicted_sql": "SELECT T1.School, T1.CharterNum, T2.AvgScrWrite \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T2.AvgScrWrite > 499 \nORDER BY T2.AvgScrWrite DESC;",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": false,
-                "etm_f1_score": 0.8889,
-                "api_error": false
-            }
-        },
-        "spts": {
-            "predicted_sql": "SELECT County, COUNT(*) \nFROM schools \nGROUP BY County \nORDER BY COUNT(*) DESC \nLIMIT 5",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": false,
-                "etm_f1_score": 0.8889,
-                "api_error": false
-            },
-            "mappings": []
-        }
-    },
-    {
-        "query_id": 12,
-        "question": "What is the average FRPM eligibility rate for the 2014-2015 academic year?",
-        "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT AVG(CAST([Percent (%) Eligible FRPM (K-12)] AS REAL)) FROM frpm WHERE [Academic Year] = '2014-2015'",
-        "baseline": {
-            "predicted_sql": "SELECT (AVG(`Percent (%) Eligible FRPM (K-12)`) ) FROM frpm WHERE `Academic Year` = '2014-2015'",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
-                "api_error": false
-            }
-        },
-        "spts": {
-            "predicted_sql": "SELECT (AVG(`Percent (%) Eligible FRPM (K-12)`) ) FROM frpm WHERE `Academic Year` = '2014-2015'",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
-                "api_error": false
-            },
-            "mappings": []
-        }
-    },
-    {
-        "query_id": 13,
-        "question": "How many FRPM records are there for Alameda county in the 2014-2015 academic year?",
-        "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM frpm WHERE [County Name] = 'Alameda' AND [Academic Year] = '2014-2015'",
-        "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE County Name = 'Alameda' \nAND Academic Year = '2014-2015'",
-            "execution_result": {
-                "pred_success": false,
-                "pred_error": "near \"Name\": syntax error"
             },
             "metrics": {
                 "execution_accuracy": false,
                 "etm_exact_match": false,
-                "etm_f1_score": 0.0,
+                "etm_f1_score": 0.7619,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE `County Name` = 'Alameda' \nAND `Academic Year` = '2014-2015'",
+            "predicted_sql": "SELECT T1.School, T1.CharterNum, T2.AvgScrWrite \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T2.AvgScrWrite > 499 \nORDER BY T2.AvgScrWrite DESC;",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7619,
                 "api_error": false
             },
             "mappings": [
                 {
-                    "original": "Alameda county",
-                    "grounded": "Alameda",
+                    "original": "Writing",
+                    "grounded": "AvgScrWrite",
+                    "table": "satscores",
+                    "column": "AvgScrWrite",
+                    "distance": 0.0,
+                    "type": "LLM Fallback (Hint)"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 12,
+        "question": "What is the telephone number for the school with the lowest average score in reading in Fresno Unified?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.Phone FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.District = 'Fresno Unified' AND T1.AvgScrRead IS NOT NULL ORDER BY T1.AvgScrRead ASC LIMIT 1",
+        "baseline": {
+            "predicted_sql": "SELECT T1.Phone \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.District = 'Fresno Unified' \nORDER BY T2.AvgScrRead \nLIMIT 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8421,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.Phone \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.County = 'Fresno' \nORDER BY T2.AvgScrRead \nLIMIT 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7368,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Fresno Unified",
+                    "grounded": "Fresno",
                     "table": "schools",
                     "column": "County",
-                    "distance": 0.0,
+                    "distance": 0.2783,
+                    "type": "Vector Semantic Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 13,
+        "question": "What is the monthly average number of schools that opened in Alameda County under the jurisdiction of the Elementary School District in 1980?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT CAST(COUNT(School) AS REAL) / 12 FROM schools WHERE DOC = 52 AND County = 'Alameda' AND strftime('%Y', OpenDate) = '1980'",
+        "baseline": {
+            "predicted_sql": "SELECT (COUNT(*)) / 12 \nFROM schools \nWHERE County = 'Alameda' \nAND District = 'Elementary School District' \nAND STRFTIME('%Y', OpenDate) = '1980'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT (COUNT(*) / 12.0) \nFROM schools \nWHERE County = 'Alameda' \nAND NCESDist = 'Elementary School District' \nAND STRFTIME('%Y', OpenDate) = '1980'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Alameda County",
+                    "grounded": "Alameda",
+                    "table": "satscores",
+                    "column": "cname",
+                    "distance": 0.2591,
                     "type": "Vector Semantic Match"
                 }
             ]
@@ -457,108 +492,86 @@
     },
     {
         "query_id": 14,
-        "question": "How many schools in LA county are active?",
+        "question": "What is the complete address of the school with the lowest excellence rate? Indicate the Street, City, Zip and State.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'Los Angeles' AND StatusType = 'Active'",
+        "gold_sql": "SELECT T2.Street, T2.City, T2.State, T2.Zip FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode ORDER BY CAST(T1.NumGE1500 AS REAL) / T1.NumTstTakr ASC LIMIT 1",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'LA' AND StatusType = 'Active'",
+            "predicted_sql": "SELECT Street, City, Zip, State FROM schools ORDER BY (SELECT MIN(AvgScrRead) FROM satscores) LIMIT 1",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
                 "execution_accuracy": false,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5882,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'Los Angeles' AND StatusType = 'Active'",
+            "predicted_sql": "SELECT Street, City, Zip, State FROM schools ORDER BY (SELECT MIN(AvgScrRead) FROM satscores) LIMIT 1",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5882,
                 "api_error": false
             },
-            "mappings": [
-                {
-                    "original": "LA county",
-                    "grounded": "Los Angeles",
-                    "table": "schools",
-                    "column": "City",
-                    "distance": 0.3643,
-                    "type": "Vector Semantic Match"
-                }
-            ]
+            "mappings": []
         }
     },
     {
         "query_id": 15,
-        "question": "How many schools are in the Los Angeles Unified school district?",
+        "question": "List the names of virtual schools that are among the top 5 in their respective counties based on average reading scores.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE District = 'Los Angeles Unified'",
+        "gold_sql": "SELECT School FROM (SELECT T2.School,T1.AvgScrRead, RANK() OVER (PARTITION BY T2.County ORDER BY T1.AvgScrRead DESC) AS rnk FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.Virtual = 'F' ) ranked_schools WHERE rnk <= 5",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE District = 'Los Angeles Unified'",
+            "predicted_sql": "SELECT T2.School \nFROM satscores AS T1 \nINNER JOIN schools AS T2 \nON T1.cds = T2.CDSCode \nWHERE T2.Virtual = 'Y' \nAND T1.cds IN (\n  SELECT T1.cds \n  FROM satscores AS T1 \n  INNER JOIN schools AS T2 \n  ON T1.cds = T2.CDSCode \n  WHERE T2.Virtual = 'Y' \n  GROUP BY T2.County \n) \nORDER BY T2.County, T1.AvgScrRead DESC \nLIMIT 5;",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.0909,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) FROM schools WHERE District = 'Los Angeles Unified'",
+            "predicted_sql": "SELECT T2.School \nFROM satscores AS T1 \nINNER JOIN schools AS T2 \nON T1.cds = T2.CDSCode \nWHERE T2.Virtual = 'Yes' \nAND T1.rtype = 'High Schools' \nAND (T2.County, T1.AvgScrRead) IN (\n  SELECT County, AvgScrRead \n  FROM (\n    SELECT T2.County, T1.AvgScrRead, \n    DENSE_RANK() OVER (PARTITION BY T2.County ORDER BY T1.AvgScrRead DESC) AS rank \n    FROM satscores AS T1 \n    INNER JOIN schools AS T2 \n    ON T1.cds = T2.CDSCode \n    WHERE T2.Virtual = 'Yes' \n    AND T1.rtype = 'High Schools'\n  ) AS subquery \n  WHERE rank <= 5\n)",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.1333,
                 "api_error": false
             },
             "mappings": [
                 {
-                    "original": "Los Angeles Unified school district",
-                    "grounded": "Los Angeles Unified",
+                    "original": "Virtual",
+                    "grounded": "Yes",
                     "table": "schools",
-                    "column": "District",
+                    "column": "Virtual",
                     "distance": 0.0,
-                    "type": "Vector Semantic Match"
+                    "type": "LLM Fallback (Hint)"
                 }
             ]
         }
     },
     {
         "query_id": 16,
-        "question": "What is the total number of students enrolled in grade 12 across all SAT schools?",
+        "question": "Name schools in Riverside which the average of average math score for SAT is grater than 400, what is the funding type of these schools?",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT SUM(enroll12) FROM satscores",
+        "gold_sql": "SELECT T1.sname, T2.`Charter Funding Type` FROM satscores AS T1 INNER JOIN frpm AS T2 ON T1.cds = T2.CDSCode WHERE T2.`District Name` LIKE 'Riverside%' GROUP BY T1.sname, T2.`Charter Funding Type` HAVING CAST(SUM(T1.AvgScrMath) AS REAL) / COUNT(T1.cds) > 400",
         "baseline": {
-            "predicted_sql": "SELECT (SUM(enroll12)) FROM satscores",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
-                "api_error": false
-            }
-        },
-        "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE `High Grade` = '12'",
+            "predicted_sql": "SELECT T1.FundingType \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.County = 'Riverside' \nGROUP BY T1.FundingType \nHAVING (AVG(T2.AvgScrMath)) > 400",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
@@ -566,41 +579,65 @@
             "metrics": {
                 "execution_accuracy": false,
                 "etm_exact_match": false,
-                "etm_f1_score": 0.0,
+                "etm_f1_score": 0.3333,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.FundingType \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.County = 'Riverside' \nGROUP BY T1.FundingType \nHAVING (AVG(T2.AvgScrMath)) > 400",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.3333,
                 "api_error": false
             },
-            "mappings": [
-                {
-                    "original": "grade 12",
-                    "grounded": "12",
-                    "table": "frpm",
-                    "column": "High Grade",
-                    "distance": 0.0,
-                    "type": "Vector Semantic Match"
-                }
-            ]
+            "mappings": []
         }
     },
     {
         "query_id": 17,
-        "question": "List the names of all school districts in Alameda county.",
+        "question": "Of the schools that offers a magnet program serving a grade span of Kindergarten to 8th grade, how many offers Multiple Provision Types? List the number of cities that offers a Kindergarten to 8th grade span and indicate how many schools are there serving such grade span for each city.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT DISTINCT District FROM schools WHERE County = 'Alameda' ORDER BY District",
+        "gold_sql": "SELECT T2.City, COUNT(T2.CDSCode) FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.Magnet = 1 AND T2.GSoffered = 'K-8' AND T1.`NSLP Provision Status` = 'Multiple Provision Types' GROUP BY T2.City",
         "baseline": {
-            "predicted_sql": "SELECT District FROM frpm WHERE County Name = 'Alameda' GROUP BY District",
+            "predicted_sql": "SELECT \n  (SELECT COUNT(DISTINCT T1.MailCity) \n   FROM schools AS T1 \n   WHERE T1.GSserved = 'K-8' AND T1.Magnet = 1) AS num_cities,\n  (SELECT COUNT(*) \n   FROM schools AS T1 \n   WHERE T1.GSserved = 'K-8' AND T1.Magnet = 1 AND T1.EdOpsType = 'Multiple Provision Types') AS num_multiple_provision,\n  T2.MailCity, \n  COUNT(T2.CDSCode) AS num_schools\nFROM \n  schools AS T2\nWHERE \n  T2.GSserved = 'K-8' AND T2.Magnet = 1\nGROUP BY \n  T2.MailCity;",
             "execution_result": {
                 "pred_success": false,
-                "pred_error": "near \"Name\": syntax error"
+                "pred_error": "no such column: T1.EdOpsType"
             },
             "metrics": {
                 "execution_accuracy": false,
                 "etm_exact_match": false,
-                "etm_f1_score": 0.0,
+                "etm_f1_score": 0.3333,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT DISTINCT District FROM schools WHERE County = 'Alameda'",
+            "predicted_sql": "SELECT \n  COUNT(DISTINCT T1.MailCity) AS num_cities,\n  T1.MailCity,\n  COUNT(T1.CDSCode) AS num_schools\nFROM \n  schools AS T1\nWHERE \n  T1.GSserved = 'K-8' AND T1.Magnet = 1\nGROUP BY \n  T1.MailCity",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.4167,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 18,
+        "question": "Under whose administration is the school with the highest number of students scoring 1500 or more on the SAT? Indicate their full names.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.AdmFName1, T2.AdmLName1, T2.AdmFName2, T2.AdmLName2, T2.AdmFName3, T2.AdmLName3 FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode ORDER BY T1.NumGE1500 DESC LIMIT 1",
+        "baseline": {
+            "predicted_sql": "SELECT T1.AdmFName1, T1.AdmLName1, T1.AdmFName2, T1.AdmLName2, T1.AdmFName3, T1.AdmLName3 \nFROM schools T1 \nJOIN satscores T2 ON T1.CDSCode = T2.cds \nORDER BY T2.NumGE1500 DESC \nLIMIT 1",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
@@ -608,49 +645,20 @@
             "metrics": {
                 "execution_accuracy": true,
                 "etm_exact_match": false,
-                "etm_f1_score": 0.8571,
-                "api_error": false
-            },
-            "mappings": [
-                {
-                    "original": "Alameda county",
-                    "grounded": "Alameda",
-                    "table": "schools",
-                    "column": "County",
-                    "distance": 0.0,
-                    "type": "Vector Semantic Match"
-                }
-            ]
-        }
-    },
-    {
-        "query_id": 18,
-        "question": "How many schools in San Diego county have a Closed status?",
-        "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM schools WHERE County = 'San Diego' AND StatusType = 'Closed'",
-        "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'San Diego' AND StatusType = 'Closed'",
-            "execution_result": {
-                "pred_success": true,
-                "pred_error": null
-            },
-            "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "etm_f1_score": 0.9167,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE County = 'San Diego' AND StatusType = 'Closed'",
+            "predicted_sql": "SELECT T1.AdmFName1, T1.AdmLName1, T1.AdmFName2, T1.AdmLName2, T1.AdmFName3, T1.AdmLName3 \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nORDER BY T2.NumGE1500 DESC \nLIMIT 1",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
                 "execution_accuracy": true,
-                "etm_exact_match": true,
-                "etm_f1_score": 1.0,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.9167,
                 "api_error": false
             },
             "mappings": []
@@ -658,11 +666,11 @@
     },
     {
         "query_id": 19,
-        "question": "Which county has the highest average SAT math score among its schools?",
+        "question": "What is the average score in writing for the schools that were opened after 1991 or closed before 2000? List the school names along with the score. Also, list the communication number of the schools if there is any.",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT s.County, AVG(sat.AvgScrMath) AS avg_math FROM satscores sat JOIN schools s ON sat.cds = s.CDSCode WHERE sat.AvgScrMath IS NOT NULL GROUP BY s.County ORDER BY avg_math DESC LIMIT 1",
+        "gold_sql": "SELECT T2.School, T1.AvgScrWrite, T2.Phone FROM schools AS T2 LEFT JOIN satscores AS T1 ON T2.CDSCode = T1.cds WHERE strftime('%Y', T2.OpenDate) > '1991' OR strftime('%Y', T2.ClosedDate) < '2000'",
         "baseline": {
-            "predicted_sql": "SELECT T1.cname \nFROM satscores AS T1 \nGROUP BY T1.cname \nORDER BY (AVG(T1.AvgScrMath)) DESC \nLIMIT 1",
+            "predicted_sql": "SELECT T1.School, T2.AvgScrWrite, T1.Phone \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.OpenDate > '1991-01-01' OR T1.ClosedDate < '2000-01-01' \nORDER BY T2.AvgScrWrite DESC;",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
@@ -670,12 +678,12 @@
             "metrics": {
                 "execution_accuracy": false,
                 "etm_exact_match": false,
-                "etm_f1_score": 0.1333,
+                "etm_f1_score": 0.9565,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT T1.cname \nFROM satscores AS T1 \nGROUP BY T1.cname \nORDER BY (AVG(T1.AvgScrMath)) DESC \nLIMIT 1",
+            "predicted_sql": "SELECT T1.School, T2.AvgScrWrite, T1.Phone \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.OpenDate > '1991-01-01' OR T1.ClosedDate < '2000-01-01' \nORDER BY T1.School;",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
@@ -683,7 +691,7 @@
             "metrics": {
                 "execution_accuracy": false,
                 "etm_exact_match": false,
-                "etm_f1_score": 0.1333,
+                "etm_f1_score": 0.9565,
                 "api_error": false
             },
             "mappings": []
@@ -691,24 +699,57 @@
     },
     {
         "query_id": 20,
-        "question": "How many schools in active status have an average SAT math score above 550?",
+        "question": "What is the grade span offered in the school with the highest longitude?",
         "db_id": "bird_mini_dev",
-        "gold_sql": "SELECT COUNT(*) FROM satscores sat JOIN schools s ON sat.cds = s.CDSCode WHERE s.StatusType = 'Active' AND sat.AvgScrMath > 550",
+        "gold_sql": "SELECT GSoffered FROM schools ORDER BY ABS(longitude) DESC LIMIT 1",
         "baseline": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM schools \nJOIN satscores \nON schools.CDSCode = satscores.cds \nWHERE schools.StatusType = 'Active' \nAND satscores.AvgScrMath > 550",
+            "predicted_sql": "SELECT GSoffered FROM schools ORDER BY Longitude DESC LIMIT 1",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
             },
             "metrics": {
-                "execution_accuracy": true,
-                "etm_exact_match": false,
-                "etm_f1_score": 0.8889,
+                "execution_accuracy": false,
+                "etm_exact_match": true,
+                "etm_f1_score": 1.0,
                 "api_error": false
             }
         },
         "spts": {
-            "predicted_sql": "SELECT (COUNT(*)) \nFROM schools \nWHERE StatusType = 'Active' \nAND CDSCode IN (SELECT cds \n                 FROM satscores \n                 WHERE AvgScrMath > 550)",
+            "predicted_sql": "SELECT GSoffered FROM schools ORDER BY Longitude DESC LIMIT 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": true,
+                "etm_f1_score": 1.0,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 21,
+        "question": "What is the average writing score of each of the schools managed by Ricci Ulrich? List the schools and the corresponding average writing scores.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.School, T1.AvgScrWrite FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.AdmFName1 = 'Ricci' AND T2.AdmLName1 = 'Ulrich'",
+        "baseline": {
+            "predicted_sql": "SELECT T1.sname, (SELECT AVG(AvgScrWrite) FROM satscores WHERE sname = T1.School) \nFROM schools AS T1 \nWHERE T1.AdmFName1 = 'Ricci' AND T1.AdmLName1 = 'Ulrich'",
+            "execution_result": {
+                "pred_success": false,
+                "pred_error": "no such column: T1.sname"
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.6316,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.School, (SELECT AVG(T2.AvgScrWrite) FROM satscores AS T2 WHERE T2.sname = T1.School) \nFROM schools AS T1 \nWHERE T1.AdmLName1 = 'Ulrich' AND T1.AdmFName1 = 'Ricci'",
             "execution_result": {
                 "pred_success": true,
                 "pred_error": null
@@ -716,10 +757,367 @@
             "metrics": {
                 "execution_accuracy": true,
                 "etm_exact_match": false,
-                "etm_f1_score": 0.5882,
+                "etm_f1_score": 0.6316,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Ricci Ulrich",
+                    "grounded": "Ulrich Ricci",
+                    "table": "schools",
+                    "column": "AdmLName1",
+                    "distance": 0.0,
+                    "type": "LLM Fallback (Hint)"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 22,
+        "question": "What is the ratio of merged Unified School District schools in Orange County to merged Elementary School District schools?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT CAST(SUM(CASE WHEN DOC = 54 THEN 1 ELSE 0 END) AS REAL) / SUM(CASE WHEN DOC = 52 THEN 1 ELSE 0 END) FROM schools WHERE StatusType = 'Merged' AND County = 'Orange'",
+        "baseline": {
+            "predicted_sql": "SELECT (COUNT(CASE WHEN T1.\"District Type\" = 'Unified School District' THEN T1.CDSCode END) * 1.0) / (COUNT(CASE WHEN T1.\"District Type\" = 'Elementary School District' THEN T1.CDSCode END)) AS ratio \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.County = 'Orange'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.2,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT (SUM(CASE WHEN \"County Name\" = 'Orange County' AND \"District Type\" = 'Unified School District' THEN 1 ELSE 0 END) * 1.0) / (SUM(CASE WHEN \"County Name\" = 'Orange County' AND \"District Type\" = 'Elementary School District' THEN 1 ELSE 0 END)) FROM frpm",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.2857,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Orange County",
+                    "grounded": "Orange County",
+                    "table": "frpm",
+                    "column": "County Name",
+                    "distance": 0.0,
+                    "type": "LLM Fallback (Hint)"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 23,
+        "question": "How many students from the ages of 5 to 17 are enrolled at the State Special School school in Fremont for the 2014-2015 academic year?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T1.`Enrollment (Ages 5-17)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.EdOpsCode = 'SSS' AND T2.City = 'Fremont' AND T1.`Academic Year` BETWEEN 2014 AND 2015",
+        "baseline": {
+            "predicted_sql": "SELECT (COUNT(\"Enrollment (Ages 5-17)\")) \nFROM frpm \nWHERE \"School Name\" = 'State Special School' \nAND \"County Name\" = 'Fremont' \nAND \"Academic Year\" = '2014-2015'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.4211,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE \"School Name\" = 'State Special School' \nAND \"County Name\" = 'Fremont' \nAND \"Academic Year\" = '2014-2015' \nAND \"Enrollment (Ages 5-17)\" > 0",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.3,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Fremont",
+                    "grounded": "Fremont",
+                    "table": "schools",
+                    "column": "School",
+                    "distance": 0.0,
+                    "type": "LLM Fallback (Hint)"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 24,
+        "question": "What is the average number of test takers from Fresno schools that opened between 1/1/1980 and 12/31/1980?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT AVG(T1.NumTstTakr) FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE strftime('%Y', T2.OpenDate) = '1980' AND T2.County = 'Fresno'",
+        "baseline": {
+            "predicted_sql": "SELECT AVG(T1.NumTstTakr) \nFROM satscores AS T1 \nINNER JOIN schools AS T2 \nON T1.cds = T2.CDSCode \nWHERE T2.County = 'Fresno' \nAND T2.OpenDate BETWEEN '1980-01-01' AND '1980-12-31'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": true,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.9,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT AVG(T1.NumTstTakr) \nFROM satscores AS T1 \nINNER JOIN schools AS T2 \nON T1.cds = T2.CDSCode \nWHERE T2.City = 'Fresno' \nAND T2.OpenDate BETWEEN '1980-01-01' AND '1980-12-31'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
                 "api_error": false
             },
             "mappings": []
+        }
+    },
+    {
+        "query_id": 25,
+        "question": "Which state special schools have the highest number of enrollees from grades 1 through 12?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.School FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.DOC = 31 ORDER BY T1.`Enrollment (K-12)` DESC LIMIT 1",
+        "baseline": {
+            "predicted_sql": "SELECT School \nFROM schools \nWHERE State = 'CA' AND StatusType = 'Active' AND SOCType = 'Special' \nORDER BY (SELECT Enrollment FROM frpm WHERE frpm.CDSCode = schools.CDSCode) DESC \nLIMIT 1",
+            "execution_result": {
+                "pred_success": false,
+                "pred_error": "no such column: Enrollment"
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.3,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT \"School Name\", (SUM(\"Enrollment (K-12)\")) \nFROM frpm \nWHERE \"School Type\" = 'State Special' \nGROUP BY \"School Name\" \nORDER BY (SUM(\"Enrollment (K-12)\")) DESC \nLIMIT 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.3529,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 26,
+        "question": "State the names and full communication address of high schools in Monterey which has more than 800 free or reduced price meals for ages 15-17?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T1.`School Name`, T2.Street, T2.City, T2.State, T2.Zip FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'Monterey' AND T1.`Free Meal Count (Ages 5-17)` > 800 AND T1.`School Type` = 'High Schools (Public)'",
+        "baseline": {
+            "predicted_sql": "SELECT T1.School, T1.Street, T1.City, T1.State, T1.Zip \nFROM schools AS T1 \nINNER JOIN frpm AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.\"County Name\" = 'Monterey' \nAND T2.\"School Type\" = 'High' \nAND (T2.\"FRPM Count (Ages 5-17)\" > 800) \nAND T1.StatusType = 'Active'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.6875,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.School, T1.Street, T1.City, T1.State, T1.Zip \nFROM schools AS T1 \nINNER JOIN frpm AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.\"Free Meal Count (Ages 5-17)\" > 800 AND T1.County = 'Monterey' AND T1.School LIKE '%High%'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": true,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7333,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 27,
+        "question": "Consider the average difference between K-12 enrollment and 15-17 enrollment of schools that are locally funded, list the names and DOC type of schools which has a difference above this average.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.School, T2.DOC FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.FundingType = 'Locally funded' AND (T1.`Enrollment (K-12)` - T1.`Enrollment (Ages 5-17)`) > (SELECT AVG(T3.`Enrollment (K-12)` - T3.`Enrollment (Ages 5-17)`) FROM frpm AS T3 INNER JOIN schools AS T4 ON T3.CDSCode = T4.CDSCode WHERE T4.FundingType = 'Locally funded')",
+        "baseline": {
+            "predicted_sql": "SELECT \n  T1.School, \n  T1.DOCType\nFROM \n  schools AS T1\n  INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode\nWHERE \n  T2.Charter Funding Type = 'Locally Funded'\n  AND (T2.`Enrollment (K-12)` - T2.`Enrollment (Ages 5-17)`) > \n    (SELECT \n       AVG(T2.`Enrollment (K-12)` - T2.`Enrollment (Ages 5-17)`) \n     FROM \n       frpm AS T2\n     WHERE \n       T2.Charter Funding Type = 'Locally Funded')",
+            "execution_result": {
+                "pred_success": false,
+                "pred_error": "near \"Funding\": syntax error"
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.0,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT School, DOCType \nFROM schools \nWHERE CDSCode IN (\n    SELECT CDSCode \n    FROM frpm \n    WHERE `Charter Funding Type` = 'Locally Funded' \n    AND (`Enrollment (K-12)` - `Enrollment (Ages 5-17)`) > (\n        SELECT (AVG(`Enrollment (K-12)`) - AVG(`Enrollment (Ages 5-17)`)) \n        FROM frpm \n        WHERE `Charter Funding Type` = 'Locally Funded'\n    )\n)",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.625,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 28,
+        "question": "What is the total number of non-chartered schools in the county of Los Angeles with a percent (%) of eligible free meals for grades 1 through 12 that is less than 0.18%?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT COUNT(T2.School) FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'Los Angeles' AND T2.Charter = 0 AND CAST(T1.`Free Meal Count (K-12)` AS REAL) * 100 / T1.`Enrollment (K-12)` < 0.18",
+        "baseline": {
+            "predicted_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE `County Name` = 'Los Angeles' \nAND `Charter School (Y/N)` = 0 \nAND `Percent (%) Eligible Free (K-12)` < 0.18",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.4,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT (COUNT(*)) \nFROM frpm \nWHERE \"County Name\" = 'Los Angeles' \nAND \"Charter School (Y/N)\" = 0 \nAND \"Percent (%) Eligible Free (K-12)\" < 0.18",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.4,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 29,
+        "question": "What is the postal street address for the school with the 7th highest Math average? Indicate the school's name.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.MailStreet, T2.School FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode ORDER BY T1.AvgScrMath DESC LIMIT 6, 1",
+        "baseline": {
+            "predicted_sql": "SELECT T1.Street, T1.School \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nORDER BY T2.AvgScrMath DESC \nLIMIT 6, 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": true,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.75,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.Street, T1.School \nFROM schools AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nORDER BY T2.AvgScrMath DESC \nLIMIT 6, 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": true,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.75,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 30,
+        "question": "What are the valid e-mail addresses of the administrator of the school located in the San Bernardino county, City of San Bernardino City Unified that opened between 1/1/2009 to 12/31/2010 whose school types are public Intermediate/Middle Schools and Unified Schools?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.AdmEmail1, T2.AdmEmail2 FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'San Bernardino' AND T2.City = 'San Bernardino' AND T2.DOC = 54 AND strftime('%Y', T2.OpenDate) BETWEEN '2009' AND '2010' AND T2.SOC = 62",
+        "baseline": {
+            "predicted_sql": "SELECT AdmEmail1, AdmEmail2, AdmEmail3 \nFROM schools \nWHERE County = 'San Bernardino' \nAND City = 'San Bernardino' \nAND District = 'San Bernardino City Unified' \nAND OpenDate BETWEEN '2009-01-01' AND '2010-12-31' \nAND (School IN ('Intermediate/Middle Schools', 'Unified Schools') \nOR EdOpsName IN ('Intermediate/Middle Schools', 'Unified Schools'))",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5806,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT AdmEmail1, AdmEmail2, AdmEmail3 \nFROM schools \nWHERE County = 'San Bernardino' \nAND District = 'San Bernardino City Unified' \nAND OpenDate BETWEEN '2009-01-01' AND '2010-12-31' \nAND SOCType = 'Intermediate/Middle Schools (Public)' \nOR EILName = 'Intermediate/Middle/Junior High' \nOR District = 'Unified School District'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5806,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "San Bernardino City Unified",
+                    "grounded": "San Bernardino",
+                    "table": "satscores",
+                    "column": "cname",
+                    "distance": 0.3228,
+                    "type": "Vector Semantic Match"
+                },
+                {
+                    "original": "Intermediate",
+                    "grounded": "Intermediate/Middle/Junior High",
+                    "table": "schools",
+                    "column": "EILName",
+                    "distance": 0.2979,
+                    "type": "Vector Semantic Match"
+                },
+                {
+                    "original": "Middle Schools",
+                    "grounded": "Intermediate/Middle Schools (Public)",
+                    "table": "schools",
+                    "column": "SOCType",
+                    "distance": 0.2947,
+                    "type": "Vector Semantic Match"
+                },
+                {
+                    "original": "Unified Schools",
+                    "grounded": "Unified School District",
+                    "table": "frpm",
+                    "column": "District Type",
+                    "distance": 0.1746,
+                    "type": "Vector Semantic Match"
+                }
+            ]
         }
     }
 ]
