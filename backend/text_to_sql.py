@@ -1,3 +1,5 @@
+import os
+import re
 import time
 from threading import Lock
 from groq import Groq, RateLimitError, APITimeoutError
@@ -33,6 +35,7 @@ _groq_clients = []
 _groq_rotation_index = 0
 _groq_client_lock = Lock()
 PRIMARY_SQL_MODEL = "llama-3.3-70b-versatile"
+BASELINE_SQL_MODEL = os.getenv("SPTS_BASELINE_SQL_MODEL", PRIMARY_SQL_MODEL).strip() or PRIMARY_SQL_MODEL
 
 
 def _configured_api_keys():
@@ -158,6 +161,185 @@ def _build_error_response(sql_error: str, system_prompt: str, injected_context_s
     }
 
 
+def _has_exact_mappings(mappings) -> bool:
+    return any("exact" in str(mapping.get("type", "")).lower() for mapping in (mappings or []))
+
+
+def _align_sql_with_mappings(user_query, draft_sql, schema_context, sql_dialect, mappings):
+    """Generic SPTS alignment pass: enforce exact mapping usage without hardcoded query templates."""
+    if not draft_sql or not _has_exact_mappings(mappings):
+        return draft_sql, {
+            "enabled": False,
+            "changed": False,
+            "latency_ms": 0,
+            "token_usage": _empty_token_usage(),
+            "skip_reason": "no_exact_mappings",
+        }
+
+    alignment_system_prompt = """
+    You are a SQL alignment assistant for Text-to-SQL.
+    You must align a draft SQL query to exact grounding constraints.
+
+    RULES:
+    1. Output ONLY valid SQL for dialect: {sql_dialect}. No markdown. No explanation.
+    2. Preserve the original question intent.
+    3. Keep existing correct joins and aggregations unless exact mappings require fixes.
+    4. For every EXACT MATCH hint, ensure the grounded literal appears on the hinted table.column filter when logically applicable.
+    5. Never invent schema elements or literals outside schema/question/hints.
+    """.format(sql_dialect=sql_dialect)
+
+    mapping_lines = []
+    for mapping in mappings:
+        if "exact" not in str(mapping.get("type", "")).lower():
+            continue
+        mapping_lines.append(
+            f"- EXACT: '{mapping.get('original')}' -> '{mapping.get('grounded')}' on {mapping.get('table')}.{mapping.get('column')}"
+        )
+
+    alignment_prompt = (
+        f"Schema:\n{schema_context}\n\n"
+        f"Question:\n{user_query}\n\n"
+        f"Draft SQL:\n{draft_sql}\n\n"
+        f"Exact mapping constraints:\n" + "\n".join(mapping_lines) + "\n\n"
+        "Return only the aligned SQL."
+    )
+
+    try:
+        start_time = time.time()
+        completion, key_index = _groq_completion_with_failover(
+            lambda client: client.chat.completions.create(
+                model=PRIMARY_SQL_MODEL,
+                messages=[
+                    {"role": "system", "content": alignment_system_prompt},
+                    {"role": "user", "content": alignment_prompt},
+                ],
+                temperature=0,
+            )
+        )
+        latency = (time.time() - start_time) * 1000
+        aligned = _strip_sql_fences(completion.choices[0].message.content)
+        if not aligned:
+            aligned = draft_sql
+
+        usage = {
+            "prompt_tokens": completion.usage.prompt_tokens,
+            "completion_tokens": completion.usage.completion_tokens,
+            "total_tokens": completion.usage.total_tokens,
+        }
+        return aligned, {
+            "enabled": True,
+            "changed": aligned.strip() != (draft_sql or "").strip(),
+            "latency_ms": round(latency, 2),
+            "token_usage": usage,
+            "model": PRIMARY_SQL_MODEL,
+            "key_index": key_index + 1,
+        }
+    except Exception as error:
+        return draft_sql, {
+            "enabled": True,
+            "changed": False,
+            "latency_ms": 0,
+            "token_usage": _empty_token_usage(),
+            "error": str(error),
+        }
+
+
+def _table_alias_for_sql(sql: str, table_name: str) -> str:
+    pattern = rf"\b(?:FROM|JOIN)\s+{re.escape(table_name)}\b\s*(?:AS\s+)?([A-Za-z]\w*)?"
+    match = re.search(pattern, sql, flags=re.IGNORECASE)
+    if not match:
+        return table_name
+    alias = (match.group(1) or "").strip()
+    return alias if alias else table_name
+
+
+def _quote_sql_literal(value: str) -> str:
+    value = str(value or "")
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _ensure_where_clause(sql: str, clause: str) -> str:
+    if re.search(r"\bWHERE\b", sql, flags=re.IGNORECASE):
+        return re.sub(r"\bWHERE\b", f"WHERE {clause} AND ", sql, count=1, flags=re.IGNORECASE)
+
+    split_match = re.search(r"\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b", sql, flags=re.IGNORECASE)
+    if split_match:
+        idx = split_match.start()
+        return f"{sql[:idx]} WHERE {clause} {sql[idx:]}"
+
+    return f"{sql} WHERE {clause}"
+
+
+def _enforce_exact_mappings(sql: str, mappings) -> str:
+    """Generic post-pass: ensure exact mapping constraints are expressed in SQL."""
+    if not sql:
+        return sql
+
+    updated = sql
+    for mapping in mappings or []:
+        if "exact" not in str(mapping.get("type", "")).lower():
+            continue
+
+        table = str(mapping.get("table", "") or "").strip()
+        column = str(mapping.get("column", "") or "").strip()
+        value = str(mapping.get("grounded", "") or "").strip()
+        if not table or not column or not value:
+            continue
+
+        alias = _table_alias_for_sql(updated, table)
+        literal = _quote_sql_literal(value)
+
+        col_ref_pattern = rf"(?:{re.escape(alias)}\.)?[`\"]?{re.escape(column)}[`\"]?"
+        predicate_pattern = rf"({col_ref_pattern}\s*=\s*)'[^']*'"
+        if re.search(predicate_pattern, updated, flags=re.IGNORECASE):
+            updated = re.sub(predicate_pattern, rf"\1{literal}", updated, flags=re.IGNORECASE)
+            continue
+
+        predicate = f"{alias}.`{column}` = {literal}"
+        updated = _ensure_where_clause(updated, predicate)
+
+    return updated
+
+
+def _conservative_repair_with_exact_mappings(sql: str, mappings) -> str:
+    """Apply minimal exact-mapping repairs without adding new predicates."""
+    if not sql:
+        return sql
+
+    updated = sql
+    for mapping in mappings or []:
+        if "exact" not in str(mapping.get("type", "")).lower():
+            continue
+
+        table = str(mapping.get("table", "") or "").strip()
+        column = str(mapping.get("column", "") or "").strip()
+        value = str(mapping.get("grounded", "") or "").strip()
+        if not table or not column or not value:
+            continue
+
+        alias = _table_alias_for_sql(updated, table)
+        literal = _quote_sql_literal(value)
+
+        col_ref_pattern = rf"(?:{re.escape(alias)}\.)?[`\"]?{re.escape(column)}[`\"]?"
+        mapped_pred_pattern = rf"({col_ref_pattern}\s*=\s*)(?:'[^']*'|\"[^\"]*\"|\d+(?:\.\d+)?)"
+        if re.search(mapped_pred_pattern, updated, flags=re.IGNORECASE):
+            updated = re.sub(mapped_pred_pattern, rf"\1{literal}", updated, count=1, flags=re.IGNORECASE)
+            continue
+
+        literal_match_pattern = rf"((?:{re.escape(alias)}\.)?[`\"]?[^`\"\s=]+[`\"]?\s*=\s*)(?:{re.escape(literal)}|\"{re.escape(value)}\")"
+        if re.search(literal_match_pattern, updated, flags=re.IGNORECASE):
+            replacement_lhs = f"{alias}.`{column}` = "
+            updated = re.sub(
+                literal_match_pattern,
+                f"{replacement_lhs}{literal}",
+                updated,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+    return updated
+
+
 def _strip_sql_fences(sql_text: str) -> str:
     return (sql_text or "").replace("```sql", "").replace("```", "").strip()
 
@@ -182,6 +364,8 @@ def _build_mapping_hints_for_reflection(mappings):
                 f"(closest value: '{mapping['grounded']}')"
             )
     return "\n".join(lines)
+
+
 
 
 def _should_run_reflection(mode: str) -> bool:
@@ -316,7 +500,24 @@ def _build_generation_prompt(user_query, schema_context, mode, mappings):
     injected_context_str = "DATABASE HINTS:\n"
     user_prompt += "\n\nDATABASE HINTS (Use these to guide your column selection and filtering):"
     if mappings and len(mappings) > 0:
+        # Keep hints high-quality to avoid over-constraining SQL generation.
+        filtered_mappings = []
         for mapping in mappings:
+            mapping_type = str(mapping.get("type", "")).lower()
+            distance = mapping.get("distance", 1.0)
+
+            if "exact" in mapping_type:
+                filtered_mappings.append(mapping)
+                continue
+
+            # Use semantic matches only when distance is strong.
+            if "vector semantic" in mapping_type and isinstance(distance, (int, float)) and distance <= 0.35:
+                filtered_mappings.append(mapping)
+
+        # Keep prompt concise and avoid noisy hint overload.
+        filtered_mappings = filtered_mappings[:6]
+
+        for mapping in filtered_mappings:
             match_type = mapping.get("type", "Unknown")
             if "Exact" in match_type or "Semantic" in match_type:
                 hint = (
@@ -331,6 +532,11 @@ def _build_generation_prompt(user_query, schema_context, mode, mappings):
                     f"'{mapping['grounded']}')."
                 )
 
+            user_prompt += f"\n{hint}"
+            injected_context_str += f"{hint}\n"
+
+        if not filtered_mappings:
+            hint = "- No high-confidence semantic hints found. Rely strictly on schema and foreign keys."
             user_prompt += f"\n{hint}"
             injected_context_str += f"{hint}\n"
     else:
@@ -357,7 +563,7 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
     schema_context = get_schema_summary()
     sql_dialect = get_main_dialect_name()
 
-    system_prompt = """
+    base_rules = """
     You are a SQL expert. Output ONLY valid SQL code for the configured database dialect: {sql_dialect}. No Markdown.
     RULES:
     1. Always use parenthesis for aggregation functions, e.g., COUNT(*).
@@ -365,20 +571,39 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
     3. Never invent literal filter values (e.g., city/county/year/status names) that are not explicitly present in the question.
     4. If the question asks for global totals/averages (e.g., "across all", "in the database", no specific entity), do not add WHERE filters.
     5. IMPORTANT: Always quote column/table names that contain spaces, e.g., "County Name" or [County Name].
-    6. DATABASE HINTS: You may receive hints linking words to schema elements. 
+    6. When multiple entities or tables are mentioned, use INNER/LEFT JOINs to connect them via foreign keys.
+    7. DATABASE HINTS: You may receive hints linking words to schema elements. 
        - If a hint is an "EXACT MATCH", use the grounded value exactly as a string literal in your WHERE/HAVING clause.
        - If a hint is a "SCHEMA HINT", use it to figure out WHICH column to filter or aggregate on, but do NOT treat the grounded word as a literal string value unless it makes logical sense for that column type.
-    """.format(sql_dialect=sql_dialect)
+    """
+
+    # For SPTS mode with mappings, add guidance to leverage hints for join discovery
+    if mode == "SPTS" and mappings and len(mappings) > 0:
+        system_prompt = base_rules + """
+    SPTS MODE - MAPPED ENTITIES GUIDANCE:
+    You have received database hints (below) that map user terms to schema elements.
+    - Use these hints to identify WHICH TABLES and COLUMNS to join on (look for mappings pointing to foreign key columns).
+    - EXACT MATCHES are canonical values—use them literally in WHERE clauses.
+    - SCHEMA HINTS point you to relevant columns; cross-reference with the schema to find join keys.
+    - When hints reference different tables, create explicit JOINS using the foreign keys shown in the schema.
+    """
+    else:
+        system_prompt = base_rules
+    
+    system_prompt = system_prompt.format(sql_dialect=sql_dialect)
 
     user_prompt, injected_context_str = _build_generation_prompt(
         user_query, schema_context, mode, mappings
     )
 
+    mode_name = (mode or "").strip().lower()
+    active_model = PRIMARY_SQL_MODEL if mode_name == "spts" else BASELINE_SQL_MODEL
+
     try:
         start_time = time.time()
         completion, key_index = _groq_completion_with_failover(
             lambda client: client.chat.completions.create(
-                model=PRIMARY_SQL_MODEL,
+                model=active_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
@@ -396,7 +621,24 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
         }
 
         reflection = _reflection_disabled()
+        mapping_alignment = {
+            "enabled": False,
+            "changed": False,
+            "latency_ms": 0,
+            "token_usage": _empty_token_usage(),
+            "skip_reason": "not_spts_or_no_exact_mappings",
+        }
         final_sql = sql
+
+        if mode_name == "spts":
+            final_sql, mapping_alignment = _align_sql_with_mappings(
+                user_query=user_query,
+                draft_sql=final_sql,
+                schema_context=schema_context,
+                sql_dialect=sql_dialect,
+                mappings=mappings,
+            )
+            final_sql = _enforce_exact_mappings(final_sql, mappings)
 
         # Agentic self-reflection loop: critic reviews SQL before any execution attempt.
         if sql and "-- API Error:" not in sql and _should_run_reflection(mode):
@@ -408,6 +650,8 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
                 mode=mode,
                 mappings=mappings,
             )
+            if mode_name == "spts":
+                final_sql = _enforce_exact_mappings(final_sql, mappings)
         else:
             reflection["skip_reason"] = (
                 "reflection_disabled_for_mode_or_config"
@@ -421,13 +665,16 @@ def generate_sql_with_llm(user_query, mode="Baseline", mappings=None):
                 "latency_ms": round(latency, 2),
                 "token_usage": tokens,
                 "key_index": key_index + 1,
+                "model": active_model,
                 "reflection_scope": SPTS_SQL_REFLECTION_SCOPE,
+                "mapping_alignment": mapping_alignment,
                 "reflection": reflection,
                 "total_latency_ms_with_reflection": round(
                     latency + reflection.get("latency_ms", 0), 2
                 ),
                 "total_tokens_with_reflection": tokens["total_tokens"]
-                + reflection.get("token_usage", {}).get("total_tokens", 0),
+                + reflection.get("token_usage", {}).get("total_tokens", 0)
+                + mapping_alignment.get("token_usage", {}).get("total_tokens", 0),
             },
         }
     except Exception as e:
@@ -444,6 +691,66 @@ def baseline_text_to_sql(user_query):
 
 def spts_text_to_sql(user_query, mappings=None):
     return generate_sql_with_llm(user_query, mode="SPTS", mappings=mappings)
+
+
+def _dedupe_sql_candidates(candidates):
+    seen = set()
+    unique = []
+    for item in candidates:
+        sql = str(item.get("sql", "") or "").strip()
+        if not sql:
+            continue
+        if "-- API Error:" in sql:
+            continue
+        key = sql.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append({"sql": sql, "source": item.get("source", "unknown")})
+    return unique
+
+
+def _exact_only_mappings(mappings):
+    exact = []
+    for mapping in mappings or []:
+        if "exact" in str(mapping.get("type", "")).lower():
+            exact.append(mapping)
+    return exact
+
+
+def generate_spts_sql_candidates(user_query, mappings=None, max_candidates: int = 3):
+    """Generate multiple generic SPTS candidates for downstream reranking."""
+    mappings = mappings or []
+    candidates = []
+
+    primary = spts_text_to_sql(user_query, mappings=mappings)
+    candidates.append({"sql": str(primary.get("sql", "") or ""), "source": "spts_all_mappings"})
+
+    exact_mappings = _exact_only_mappings(mappings)
+    if exact_mappings and len(exact_mappings) != len(mappings):
+        exact_only = generate_sql_with_llm(user_query, mode="SPTS", mappings=exact_mappings)
+        candidates.append({"sql": str(exact_only.get("sql", "") or ""), "source": "spts_exact_mappings"})
+
+    if exact_mappings:
+        baseline = baseline_text_to_sql(user_query)
+        baseline_sql = str(baseline.get("sql", "") or "")
+        if baseline_sql and "-- API Error:" not in baseline_sql:
+            conservative = _conservative_repair_with_exact_mappings(baseline_sql, exact_mappings)
+            candidates.append({"sql": conservative, "source": "baseline_conservative_exact_repair"})
+
+            schema_context = get_schema_summary()
+            sql_dialect = get_main_dialect_name()
+            aligned_sql, _ = _align_sql_with_mappings(
+                user_query=user_query,
+                draft_sql=baseline_sql,
+                schema_context=schema_context,
+                sql_dialect=sql_dialect,
+                mappings=exact_mappings,
+            )
+            candidates.append({"sql": aligned_sql, "source": "baseline_aligned_to_exact"})
+
+    unique = _dedupe_sql_candidates(candidates)
+    return unique[: max(1, int(max_candidates or 1))]
 
 
 def fix_sql_with_llm(user_query, bad_sql, error_message, mappings=None):

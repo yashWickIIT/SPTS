@@ -1,0 +1,28 @@
+{
+    "Total_Queries_Tested": 8,
+    "Baseline": {
+        "Execution_Accuracy_EXE": 12.5,
+        "Execution_Accuracy_EXE_Count": 1,
+        "Enhanced_Tree_Matching_ETM_Exact": 0.0,
+        "Enhanced_Tree_Matching_ETM_Exact_Count": 0,
+        "Average_Structural_F1_Score": 73.62,
+        "Average_Structural_F1_Score_Sum": 5.8899,
+        "Scored_Queries": 8,
+        "API_Error_Queries": 0
+    },
+    "SPTS": {
+        "Execution_Accuracy_EXE": 12.5,
+        "Execution_Accuracy_EXE_Count": 1,
+        "Enhanced_Tree_Matching_ETM_Exact": 0.0,
+        "Enhanced_Tree_Matching_ETM_Exact_Count": 0,
+        "Average_Structural_F1_Score": 73.62,
+        "Average_Structural_F1_Score_Sum": 5.8899,
+        "Scored_Queries": 8,
+        "API_Error_Queries": 0
+    },
+    "Improvement_SPTS_minus_Baseline": {
+        "Execution_Accuracy_EXE": 0.0,
+        "Enhanced_Tree_Matching_ETM_Exact": 0.0,
+        "Average_Structural_F1_Score": 0.0
+    }
+}

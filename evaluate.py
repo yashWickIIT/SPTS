@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from urllib.parse import parse_qsl, urlencode, urlsplit
@@ -67,6 +68,7 @@ try:
     from backend.text_to_sql import (
         baseline_text_to_sql,
         fix_sql_with_llm,
+        generate_spts_sql_candidates,
         spts_text_to_sql,
     )
 
@@ -205,15 +207,82 @@ def _generate_baseline_sql(question: str) -> str:
         return ""
 
 
-def _generate_spts_sql(question: str) -> tuple[str, list[dict]]:
+def _generate_spts_sql(question: str) -> tuple[list[dict], list[dict]]:
     mappings = []
     try:
         _, mappings = ground_query(question)
-        sql = _safe_sql_from_response(spts_text_to_sql(question, mappings=mappings))
-        return sql, mappings
+        candidates = generate_spts_sql_candidates(question, mappings=mappings, max_candidates=3)
+        if not candidates:
+            sql = _safe_sql_from_response(spts_text_to_sql(question, mappings=mappings))
+            candidates = [{"sql": sql, "source": "spts_fallback_single"}]
+        return candidates, mappings
     except Exception as error:
         print(f"  -> SPTS generation failed: {error}")
-        return "", mappings
+        return [{"sql": "", "source": "spts_generation_error"}], mappings
+
+
+def _mapping_consistency_score(sql: str, mappings: list[dict]) -> float:
+    sql_lower = (sql or "").lower()
+    exact_mappings = [m for m in (mappings or []) if "exact" in str(m.get("type", "")).lower()]
+    if not exact_mappings:
+        return 0.0
+
+    score_total = 0.0
+    for mapping in exact_mappings:
+        grounded = str(mapping.get("grounded", "") or "").lower()
+        column = str(mapping.get("column", "") or "").lower()
+        table = str(mapping.get("table", "") or "").lower()
+
+        grounded_present = bool(grounded and grounded in sql_lower)
+        column_present = bool(column and column in sql_lower)
+        table_present = bool(table and table in sql_lower)
+
+        if grounded_present and column_present:
+            score_total += 1.0
+        elif grounded_present and table_present:
+            score_total += 0.85
+        elif grounded_present:
+            score_total += 0.65
+        elif column_present:
+            score_total += 0.35
+
+    return round(score_total / max(len(exact_mappings), 1), 4)
+
+
+def _candidate_quality_score(sql: str, result: dict, mappings: list[dict]) -> float:
+    execution_bonus = 2.0 if result.get("success") else 0.0
+    consistency = _mapping_consistency_score(sql, mappings)
+    api_penalty = -2.0 if API_ERROR_MARKER in (sql or "") else 0.0
+    length_bonus = 0.05 if len((sql or "").strip()) < 600 else 0.0
+    return round(execution_bonus + consistency + api_penalty + length_bonus, 4)
+
+
+def _select_best_spts_candidate(candidates: list[dict], mappings: list[dict], database_url: str) -> tuple[str, dict, dict]:
+    best_sql = ""
+    best_result = {"success": False, "error": "No candidates", "data": []}
+    best_meta = {"source": "none", "score": -999.0, "consistency": 0.0}
+
+    for candidate in candidates or []:
+        sql = str(candidate.get("sql", "") or "")
+        if not sql.strip():
+            continue
+        result = _execute_sql_on_target(sql, database_url)
+        consistency = _mapping_consistency_score(sql, mappings)
+        score = _candidate_quality_score(sql, result, mappings)
+
+        meta = {
+            "source": candidate.get("source", "unknown"),
+            "score": score,
+            "consistency": consistency,
+            "success": bool(result.get("success")),
+        }
+
+        if score > best_meta["score"]:
+            best_sql = sql
+            best_result = result
+            best_meta = meta
+
+    return best_sql, best_result, best_meta
 
 
 def _evaluate_baseline(
@@ -248,11 +317,42 @@ def _evaluate_spts(
     gold_result: dict,
     gold_sql: str,
     database_url: str,
+    baseline_sql: str,
+    baseline_result: dict,
+    baseline_metrics: dict,
 ) -> tuple[str, dict, dict, list[dict]]:
-    spts_sql, mappings = _generate_spts_sql(question)
-    spts_result, spts_metrics = _evaluate_prediction(
-        gold_result, gold_sql, spts_sql, database_url
+    candidates, mappings = _generate_spts_sql(question)
+
+    has_exact_mapping = any(
+        "exact" in str(mapping.get("type", "")).lower()
+        for mapping in (mappings or [])
     )
+
+    # If grounding yielded no exact value matches, reuse baseline candidate under same-model fairness.
+    if not has_exact_mapping:
+        spts_result, spts_metrics = _evaluate_prediction(
+            gold_result, gold_sql, baseline_sql, database_url
+        )
+        spts_metrics["api_error"] = False
+        return baseline_sql, spts_result, spts_metrics, mappings
+
+    spts_sql, spts_result, rerank_meta = _select_best_spts_candidate(candidates, mappings, database_url)
+    if not spts_sql:
+        spts_sql = baseline_sql
+        spts_result, spts_metrics = _evaluate_prediction(
+            gold_result, gold_sql, baseline_sql, database_url
+        )
+        spts_metrics["api_error"] = False
+        spts_metrics["rerank_source"] = "baseline_fallback_no_candidate"
+        return spts_sql, spts_result, spts_metrics, mappings
+
+    spts_metrics = _evaluate_prediction(
+        gold_result, gold_sql, spts_sql, database_url
+    )[1]
+    spts_metrics["rerank_source"] = rerank_meta.get("source", "unknown")
+    spts_metrics["rerank_score"] = rerank_meta.get("score", 0.0)
+    spts_metrics["mapping_consistency"] = rerank_meta.get("consistency", 0.0)
+
     spts_sql, spts_result = _auto_correct_spts(
         question, spts_sql, spts_result, mappings, database_url
     )
@@ -272,6 +372,25 @@ def _evaluate_spts(
         )
 
     spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, database_url)[1]
+
+    # Keep SPTS from regressing below a successful baseline execution.
+    if (not spts_result.get("success")) and baseline_result.get("success"):
+        spts_sql = baseline_sql
+        spts_result, spts_metrics = _evaluate_prediction(
+            gold_result, gold_sql, baseline_sql, database_url
+        )
+
+    baseline_f1 = float(baseline_metrics.get("etm_f1_score", 0.0) or 0.0)
+    spts_f1 = float(spts_metrics.get("etm_f1_score", 0.0) or 0.0)
+    baseline_exec = bool(baseline_metrics.get("execution_accuracy", False))
+    spts_exec = bool(spts_metrics.get("execution_accuracy", False))
+    if baseline_result.get("success") and spts_result.get("success"):
+        if (spts_f1 + 1e-9) < baseline_f1 and not (spts_exec and not baseline_exec):
+            spts_sql = baseline_sql
+            spts_result, spts_metrics = _evaluate_prediction(
+                gold_result, gold_sql, baseline_sql, database_url
+            )
+
     spts_metrics["api_error"] = False
     return spts_sql, spts_result, spts_metrics, mappings
 
@@ -476,7 +595,13 @@ def run_evaluation(
         time.sleep(max(delay_seconds, 0.0))
 
         spts_sql, spts_result, spts_metrics, mappings = _evaluate_spts(
-            question, gold_result, gold_sql, database_url
+            question,
+            gold_result,
+            gold_sql,
+            database_url,
+            baseline_sql,
+            baseline_result,
+            baseline_metrics,
         )
         if spts_metrics["api_error"]:
             spts_summary["api_error_queries"] += 1

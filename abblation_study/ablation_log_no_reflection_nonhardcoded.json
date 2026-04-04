@@ -1,0 +1,401 @@
+[
+    {
+        "query_id": 1,
+        "question": "Which schools served a grade span of Kindergarten to 9th grade in the county of Los Angeles and what is its Percent (%) Eligible FRPM (Ages 5-17)?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.School, T1.`FRPM Count (Ages 5-17)` * 100 / T1.`Enrollment (Ages 5-17)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'Los Angeles' AND T2.GSserved = 'K-9'",
+        "baseline": {
+            "predicted_sql": "SELECT T1.\"School Name\", T1.\"Percent (%) Eligible FRPM (Ages 5-17)\" \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T1.\"County Name\" = 'Los Angeles' \nAND T1.\"Low Grade\" = 'K' \nAND T1.\"High Grade\" = '9'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5217,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.`Percent (%) Eligible FRPM (Ages 5-17)` \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.County = 'Los Angeles' \nAND T2.GSserved = 'K-9'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Los Angeles",
+                    "grounded": "Los Angeles",
+                    "table": "schools",
+                    "column": "County",
+                    "distance": 0.0,
+                    "type": "Rule Exact Match"
+                },
+                {
+                    "original": "Kindergarten to grade span",
+                    "grounded": "K-9",
+                    "table": "schools",
+                    "column": "GSserved",
+                    "distance": 0.0,
+                    "type": "Rule Exact Match"
+                },
+                {
+                    "original": "9th grade",
+                    "grounded": "9",
+                    "table": "frpm",
+                    "column": "Low Grade",
+                    "distance": 0.4468,
+                    "type": "Vector Semantic Match"
+                },
+                {
+                    "original": "9th",
+                    "grounded": "9",
+                    "table": "frpm",
+                    "column": "Low Grade",
+                    "distance": 0.1011,
+                    "type": "Vector Semantic Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 2,
+        "question": "Between San Diego and Santa Barbara, which county offers the most number of schools that does not offer physical building? Indicate the amount.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT County, COUNT(Virtual) FROM schools WHERE (County = 'San Diego' OR County = 'Santa Barbara') AND Virtual = 'F' GROUP BY County ORDER BY COUNT(Virtual) DESC LIMIT 1",
+        "baseline": {
+            "predicted_sql": "SELECT \"County\", (COUNT(*)) \nFROM schools \nWHERE Virtual = 'Y' AND \"County\" IN ('San Diego', 'Santa Barbara') \nGROUP BY \"County\" \nORDER BY (COUNT(*)) DESC \nLIMIT 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT \"County\", (COUNT(*)) \nFROM schools \nWHERE Virtual = 'F' AND \"County\" IN ('San Diego', 'Santa Barbara') \nGROUP BY \"County\" \nORDER BY (COUNT(*)) DESC \nLIMIT 1",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": true,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Santa Barbara",
+                    "grounded": "Santa Barbara",
+                    "table": "schools",
+                    "column": "County",
+                    "distance": 0.0,
+                    "type": "Rule Exact Match"
+                },
+                {
+                    "original": "does not offer physical building",
+                    "grounded": "F",
+                    "table": "schools",
+                    "column": "Virtual",
+                    "distance": 0.0,
+                    "type": "Rule Exact Match"
+                },
+                {
+                    "original": "San Diego",
+                    "grounded": "San Diego",
+                    "table": "schools",
+                    "column": "County",
+                    "distance": 0.0,
+                    "type": "Schema Exact Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 3,
+        "question": "List the names of schools with more than 30 difference in enrollements between K-12 and ages 5-17? Please also give the full street adress of the schools.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T1.School, T1.Street FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.`Enrollment (K-12)` - T2.`Enrollment (Ages 5-17)` > 30",
+        "baseline": {
+            "predicted_sql": "SELECT T1.`School Name`, T2.Street, T2.City, T2.State, T2.Zip \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE (T1.`Enrollment (K-12)`) - (T1.`Enrollment (Ages 5-17)`) > 30 \nOR (T1.`Enrollment (Ages 5-17)`) - (T1.`Enrollment (K-12)`) > 30",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5833,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.`School Name`, T2.Street, T2.City, T2.State, T2.Zip \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE (T1.`Enrollment (K-12)`) - (T1.`Enrollment (Ages 5-17)`) > 30 \nOR (T1.`Enrollment (Ages 5-17)`) - (T1.`Enrollment (K-12)`) > 30",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.5833,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "K-12",
+                    "grounded": "K-12",
+                    "table": "schools",
+                    "column": "GSserved",
+                    "distance": 0.0,
+                    "type": "Schema Exact Match"
+                },
+                {
+                    "original": "ages 5-17",
+                    "grounded": "17",
+                    "table": "frpm",
+                    "column": "County Code",
+                    "distance": 0.3724,
+                    "type": "Vector Semantic Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 4,
+        "question": "Give the names of the schools with the percent eligible for free meals in K-12 is more than 0.1 and test takers whose test score is greater than or equal to 1500?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T2.`School Name` FROM satscores AS T1 INNER JOIN frpm AS T2 ON T1.cds = T2.CDSCode WHERE CAST(T2.`Free Meal Count (K-12)` AS REAL) / T2.`Enrollment (K-12)` > 0.1 AND T1.NumGE1500 > 0",
+        "baseline": {
+            "predicted_sql": "SELECT T1.\"School Name\" \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.`Percent (%) Eligible Free (K-12)` > 0.1 \nAND T2.NumGE1500 > 0",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": true,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7368,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.\"School Name\" \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE T1.`Percent (%) Eligible Free (K-12)` > 0.1 \nAND T2.NumGE1500 > 0",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": true,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.7368,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "K-12",
+                    "grounded": "K-12",
+                    "table": "schools",
+                    "column": "GSserved",
+                    "distance": 0.0,
+                    "type": "Schema Exact Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 5,
+        "question": "What is the eligible free or reduced price meal rate for the top 5 schools in grades 1-12 with the highest free or reduced price meal count of the schools with the ownership code 66?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT CAST(T1.`FRPM Count (K-12)` AS REAL) / T1.`Enrollment (K-12)` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.SOC = 66 ORDER BY T1.`FRPM Count (K-12)` DESC LIMIT 5",
+        "baseline": {
+            "predicted_sql": "SELECT T1.\"School Name\", (T1.\"FRPM Count (K-12)\") / (T1.\"Enrollment (K-12)\") * 100 \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.EDOpsCode = '66' \nORDER BY T1.\"FRPM Count (K-12)\" DESC \nLIMIT 5",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8571,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.\"School Name\", (T1.\"FRPM Count (K-12)\") / (T1.\"Enrollment (K-12)\") * 100 \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.EDOpsCode = '66' \nORDER BY T1.\"FRPM Count (K-12)\" DESC \nLIMIT 5",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8571,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "ownership code 66",
+                    "grounded": "66",
+                    "table": "schools",
+                    "column": "SOC",
+                    "distance": 0.0,
+                    "type": "Rule Exact Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 6,
+        "question": "What is the Percent (%) Eligible Free (K-12) in the school administered by an administrator whose first name is Alusine. List the district code of the school.",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT T1.`Free Meal Count (K-12)` * 100 / T1.`Enrollment (K-12)`, T1.`District Code` FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.AdmFName1 = 'Alusine'",
+        "baseline": {
+            "predicted_sql": "SELECT T1.`District Code`, T1.`Percent (%) Eligible Free (K-12)` \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.AdmFName1 = 'Alusine'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8235,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT T1.`District Code`, T1.`Percent (%) Eligible Free (K-12)` \nFROM frpm AS T1 \nINNER JOIN schools AS T2 \nON T1.CDSCode = T2.CDSCode \nWHERE T2.AdmFName1 = 'Alusine'",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8235,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "Alusine",
+                    "grounded": "Alusine",
+                    "table": "schools",
+                    "column": "AdmFName1",
+                    "distance": 0.0,
+                    "type": "Rule Exact Match"
+                },
+                {
+                    "original": "K-12",
+                    "grounded": "K-12",
+                    "table": "schools",
+                    "column": "GSserved",
+                    "distance": 0.0,
+                    "type": "Schema Exact Match"
+                }
+            ]
+        }
+    },
+    {
+        "query_id": 7,
+        "question": "Among the schools with an SAT excellence rate of over 0.3, what is the highest eligible free rate for students aged 5-17?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT MAX(CAST(T1.`Free Meal Count (Ages 5-17)` AS REAL) / T1.`Enrollment (Ages 5-17)`) FROM frpm AS T1 INNER JOIN satscores AS T2 ON T1.CDSCode = T2.cds WHERE CAST(T2.NumGE1500 AS REAL) / T2.NumTstTakr > 0.3",
+        "baseline": {
+            "predicted_sql": "SELECT MAX(T1.`Percent (%) Eligible Free (Ages 5-17)`) \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE (CAST(T2.NumGE1500 AS REAL) / T2.NumTstTakr) > 0.3",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8421,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT MAX(T1.`Percent (%) Eligible Free (Ages 5-17)`) \nFROM frpm AS T1 \nINNER JOIN satscores AS T2 \nON T1.CDSCode = T2.cds \nWHERE (CAST(T2.NumGE1500 AS REAL) / T2.NumTstTakr) > 0.3",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8421,
+                "api_error": false
+            },
+            "mappings": []
+        }
+    },
+    {
+        "query_id": 8,
+        "question": "What is the eligible free rate of the 10th and 11th schools with the highest enrolment for students in grades 1 through 12?",
+        "db_id": "bird_mini_dev",
+        "gold_sql": "SELECT CAST(`Free Meal Count (K-12)` AS REAL) / `Enrollment (K-12)` FROM frpm ORDER BY `Enrollment (K-12)` DESC LIMIT 9, 2",
+        "baseline": {
+            "predicted_sql": "SELECT (SUM(\"Free Meal Count (K-12)\") / SUM(\"Enrollment (K-12)\") * 100) \nFROM frpm \nORDER BY \"Enrollment (K-12)\" DESC \nLIMIT 10, 2",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
+                "api_error": false
+            }
+        },
+        "spts": {
+            "predicted_sql": "SELECT (SUM(\"Free Meal Count (K-12)\") / SUM(\"Enrollment (K-12)\") * 100) \nFROM frpm \nORDER BY \"Enrollment (K-12)\" DESC \nLIMIT 10, 2",
+            "execution_result": {
+                "pred_success": true,
+                "pred_error": null
+            },
+            "metrics": {
+                "execution_accuracy": false,
+                "etm_exact_match": false,
+                "etm_f1_score": 0.8,
+                "api_error": false
+            },
+            "mappings": [
+                {
+                    "original": "10th",
+                    "grounded": "10",
+                    "table": "frpm",
+                    "column": "Low Grade",
+                    "distance": 0.1624,
+                    "type": "Vector Semantic Match"
+                },
+                {
+                    "original": "11th",
+                    "grounded": "11",
+                    "table": "frpm",
+                    "column": "High Grade",
+                    "distance": 0.1335,
+                    "type": "Vector Semantic Match"
+                },
+                {
+                    "original": "1-12",
+                    "grounded": "1-12",
+                    "table": "schools",
+                    "column": "GSserved",
+                    "distance": 0.0,
+                    "type": "Schema Exact Match"
+                }
+            ]
+        }
+    }
+]

@@ -331,25 +331,40 @@ def query(request: Request, payload: QueryPayload, current_user: Annotated[dict,
             detail=f"Baseline SQL generation unavailable: {baseline_api_error}",
         )
     
-    # We pass the original untouched user_query, plus our new Vector DB hints
-    spts_response = spts_text_to_sql(user_query, mappings)
-    spts_sql = spts_response["sql"]
-    spts_rationale = spts_response["rationale"]
-
-    spts_sql = _sanitize_or_raise(spts_sql, "SPTS")
-
-    spts_api_error = extract_api_error(spts_sql)
-    if spts_api_error:
-        raise HTTPException(
-            status_code=503,
-            detail=f"SPTS SQL generation unavailable: {spts_api_error}",
-        )
-
     baseline_result = execute_sql(baseline_sql)
-    spts_result = execute_sql(spts_sql)
+
+    has_exact_mapping = any(
+        "exact" in str(mapping.get("type", "")).lower()
+        for mapping in (mappings or [])
+    )
+
+    # If grounding has no exact matches, keep SPTS aligned with baseline under same-model fairness.
+    if not has_exact_mapping:
+        spts_sql = baseline_sql
+        spts_rationale = {
+            "fallback_reason": "no_exact_grounding_matches",
+            "mirrors_baseline": True,
+        }
+        spts_result = baseline_result
+    else:
+        # We pass the original untouched user_query, plus our new Vector DB hints
+        spts_response = spts_text_to_sql(user_query, mappings)
+        spts_sql = spts_response["sql"]
+        spts_rationale = spts_response["rationale"]
+
+        spts_sql = _sanitize_or_raise(spts_sql, "SPTS")
+
+        spts_api_error = extract_api_error(spts_sql)
+        if spts_api_error:
+            raise HTTPException(
+                status_code=503,
+                detail=f"SPTS SQL generation unavailable: {spts_api_error}",
+            )
+
+        spts_result = execute_sql(spts_sql)
 
     # 1-pass auto-correction loop for SPTS
-    if not spts_result["success"]:
+    if mappings and not spts_result["success"]:
         # fix_sql_with_llm still returns just the SQL string based on previous signature
         spts_sql = fix_sql_with_llm(user_query, spts_sql, spts_result["error"], mappings)
         spts_sql = _sanitize_or_raise(spts_sql, "auto-corrected SPTS")
@@ -362,6 +377,13 @@ def query(request: Request, payload: QueryPayload, current_user: Annotated[dict,
         spts_result = execute_sql(spts_sql)
         # Optional: we update rationale to indicate a fix occurred, but keep the original latency/tokens for simplicity or add a flag
         spts_rationale["auto_corrected"] = True
+
+    # Prevent SPTS runtime regressions when baseline executes but SPTS does not.
+    if (not spts_result.get("success")) and baseline_result.get("success"):
+        spts_sql = baseline_sql
+        spts_result = baseline_result
+        if isinstance(spts_rationale, dict):
+            spts_rationale["fallback_reason"] = "spts_execution_failed_used_baseline"
 
     # Safely format result for frontend compatibility (`app.js` expects arrays)
     def format_res(res):
