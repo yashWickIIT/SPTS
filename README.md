@@ -58,7 +58,12 @@ SPTS uses a single workspace-level `.env` file loaded by `backend/config.py`.
 ### Required
 
 ```env
-API_KEY=your_groq_api_key_here
+# Preferred for failover/rotation across multiple keys
+GROQ_API_KEYS=key_1,key_2,key_3,key_4,key_5
+
+# Backward-compatible single key options (still supported)
+# API_KEY=your_groq_api_key_here
+# GROQ_API_KEY=your_groq_api_key_here
 ```
 
 ### Common Optional Settings

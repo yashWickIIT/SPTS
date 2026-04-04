@@ -5,24 +5,24 @@
         "Execution_Accuracy_EXE_Count": 4,
         "Enhanced_Tree_Matching_ETM_Exact": 3.33,
         "Enhanced_Tree_Matching_ETM_Exact_Count": 1,
-        "Average_Structural_F1_Score": 61.85,
-        "Average_Structural_F1_Score_Sum": 18.5544,
+        "Average_Structural_F1_Score": 60.83,
+        "Average_Structural_F1_Score_Sum": 18.2498,
         "Scored_Queries": 30,
         "API_Error_Queries": 0
     },
     "SPTS": {
-        "Execution_Accuracy_EXE": 16.67,
-        "Execution_Accuracy_EXE_Count": 5,
+        "Execution_Accuracy_EXE": 13.33,
+        "Execution_Accuracy_EXE_Count": 4,
         "Enhanced_Tree_Matching_ETM_Exact": 3.33,
         "Enhanced_Tree_Matching_ETM_Exact_Count": 1,
-        "Average_Structural_F1_Score": 61.51,
-        "Average_Structural_F1_Score_Sum": 18.4519,
+        "Average_Structural_F1_Score": 58.95,
+        "Average_Structural_F1_Score_Sum": 17.6844,
         "Scored_Queries": 30,
         "API_Error_Queries": 0
     },
     "Improvement_SPTS_minus_Baseline": {
-        "Execution_Accuracy_EXE": 3.34,
+        "Execution_Accuracy_EXE": 0.0,
         "Enhanced_Tree_Matching_ETM_Exact": 0.0,
-        "Average_Structural_F1_Score": -0.34
+        "Average_Structural_F1_Score": -1.88
     }
 }

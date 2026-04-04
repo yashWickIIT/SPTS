@@ -1,12 +1,14 @@
 import json
 import uuid
 import re
+import time
+from threading import Lock
 import chromadb
-from groq import Groq
+from groq import Groq, RateLimitError, APITimeoutError
 
 try:
     from .embedding_util import get_embedding
-    from .config import CHROMA_PATH, API_KEY
+    from .config import CHROMA_PATH, API_KEY, GROQ_API_KEYS
     from .db_client import (
         list_user_tables,
         get_table_columns,
@@ -15,7 +17,7 @@ try:
     )
 except ImportError:
     from embedding_util import get_embedding
-    from config import CHROMA_PATH, API_KEY
+    from config import CHROMA_PATH, API_KEY, GROQ_API_KEYS
     from db_client import (
         list_user_tables,
         get_table_columns,
@@ -181,23 +183,84 @@ def _is_plausible_vector_mapping(entity: str, canonical: str, distance: float) -
 
 _connect_collection()
 
-_groq_client = None
+_groq_clients = []
+_groq_rotation_index = 0
+_groq_client_lock = Lock()
 
 
-def _get_groq_client():
-    global _groq_client
-    if _groq_client is not None:
-        return _groq_client
+def _configured_api_keys():
+    keys = [key.strip() for key in (GROQ_API_KEYS or []) if key and key.strip()]
+    if keys:
+        return keys
+    if API_KEY and API_KEY.strip():
+        return [API_KEY.strip()]
+    return []
 
-    if not API_KEY:
+
+def _ensure_groq_clients():
+    global _groq_clients
+    if _groq_clients:
+        return _groq_clients
+
+    for key in _configured_api_keys():
+        try:
+            _groq_clients.append(Groq(api_key=key))
+        except Exception as e:
+            print(f"Warning: failed to initialize Groq client in grounding: {e}")
+            continue
+
+    return _groq_clients
+
+
+def _acquire_next_client():
+    global _groq_rotation_index
+    with _groq_client_lock:
+        clients = _ensure_groq_clients()
+        if not clients:
+            return None, -1
+
+        current_index = _groq_rotation_index % len(clients)
+        _groq_rotation_index = (_groq_rotation_index + 1) % len(clients)
+        return clients[current_index], current_index
+
+
+def _is_retryable_groq_error(error: Exception) -> bool:
+    if isinstance(error, (RateLimitError, APITimeoutError)):
+        return True
+
+    error_text = str(error).lower()
+    retryable_markers = (
+        "rate limit",
+        "too many requests",
+        "429",
+        "quota",
+        "timeout",
+        "timed out",
+        "overloaded",
+    )
+    return any(marker in error_text for marker in retryable_markers)
+
+
+def _groq_completion_with_failover(create_completion, attempts_per_key=2):
+    clients = _ensure_groq_clients()
+    if not clients:
         return None
 
-    try:
-        _groq_client = Groq(api_key=API_KEY)
-        return _groq_client
-    except Exception as e:
-        print(f"Warning: failed to initialize Groq client in grounding: {e}")
-        return None
+    total_attempts = max(1, len(clients) * max(1, attempts_per_key))
+
+    for attempt in range(total_attempts):
+        client, _ = _acquire_next_client()
+        if client is None:
+            break
+
+        try:
+            return create_completion(client)
+        except Exception as error:
+            if not _is_retryable_groq_error(error):
+                return None
+            time.sleep(min(0.3 * (attempt + 1), 1.5))
+
+    return None
 
 
 def get_mini_schema():
@@ -211,8 +274,7 @@ def get_mini_schema():
 
 
 def extract_entities(query: str):
-    client = _get_groq_client()
-    if client is None:
+    if not _configured_api_keys():
         return []
 
     prompt = f"""
@@ -229,12 +291,16 @@ def extract_entities(query: str):
     Output ONLY a JSON object with a list of strings under the key 'entities'.
     """
     try:
-        resp = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            response_format={"type": "json_object"},
+        resp = _groq_completion_with_failover(
+            lambda client: client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,
+                response_format={"type": "json_object"},
+            )
         )
+        if resp is None:
+            return []
         return json.loads(resp.choices[0].message.content).get("entities", [])
     except Exception:
         return []
@@ -242,8 +308,7 @@ def extract_entities(query: str):
 
 def lightweight_fallback_search(entity: str):
     """Uses a fast, lightweight model to guess the canonical value if vector search fails."""
-    client = _get_groq_client()
-    if client is None:
+    if not _configured_api_keys():
         return None, None, None
 
     schema = get_mini_schema()
@@ -256,12 +321,16 @@ def lightweight_fallback_search(entity: str):
     Output ONLY a JSON object with keys: 'canonical', 'table', 'column', 'confidence_score' (1-100).
     """
     try:
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # Lightweight, fast, cost-effective model
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            response_format={"type": "json_object"},
+        resp = _groq_completion_with_failover(
+            lambda client: client.chat.completions.create(
+                model="llama-3.1-8b-instant",  # Lightweight, fast, cost-effective model
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,
+                response_format={"type": "json_object"},
+            )
         )
+        if resp is None:
+            return None, None, None
         data = json.loads(resp.choices[0].message.content)
         if data.get("confidence_score", 0) > 75:
             return data.get("canonical"), data.get("table"), data.get("column")

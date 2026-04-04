@@ -67,8 +67,51 @@ def _ensure_read_only_database_url(url: str) -> str:
 
 
 # API Key (required for LLM features like SQL generation and grounding)
-# Checks both API_KEY and GROQ_API_KEY for backward compatibility
-API_KEY = os.getenv("API_KEY") or os.getenv("GROQ_API_KEY") or ""
+# Supports both single-key and multi-key setup for Groq.
+# Preferred env for multiple keys: GROQ_API_KEYS=key1,key2,key3
+def _collect_groq_api_keys() -> list[str]:
+    keys: list[str] = []
+
+    raw_multi = os.getenv("GROQ_API_KEYS", "")
+    if raw_multi:
+        for raw in raw_multi.replace(";", ",").split(","):
+            candidate = raw.strip()
+            if candidate:
+                keys.append(candidate)
+
+    for env_name in (
+        "API_KEY",
+        "GROQ_API_KEY",
+        "API_KEY_1",
+        "API_KEY_2",
+        "API_KEY_3",
+        "API_KEY_4",
+        "API_KEY_5",
+        "GROQ_API_KEY_1",
+        "GROQ_API_KEY_2",
+        "GROQ_API_KEY_3",
+        "GROQ_API_KEY_4",
+        "GROQ_API_KEY_5",
+    ):
+        value = os.getenv(env_name, "").strip()
+        if value:
+            keys.append(value)
+
+    # Deduplicate while preserving order.
+    unique_keys = []
+    seen = set()
+    for key in keys:
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_keys.append(key)
+
+    return unique_keys
+
+
+GROQ_API_KEYS = _collect_groq_api_keys()
+# Backward-compatible single key export used by existing modules.
+API_KEY = GROQ_API_KEYS[0] if GROQ_API_KEYS else ""
 
 
 def get_allowed_origins() -> list[str]:
@@ -94,3 +137,25 @@ MAIN_DATABASE_URL = get_main_database_url()
 ALLOWED_ORIGINS = get_allowed_origins()
 MAX_REQUEST_BODY_BYTES = int(os.getenv("SPTS_MAX_REQUEST_BODY_BYTES") or "16384")
 MAX_QUERY_LENGTH = int(os.getenv("SPTS_MAX_QUERY_LENGTH") or "1000")
+
+
+def _as_bool(value: str, default: bool = False) -> bool:
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+# SQL reflection (agentic critic) controls.
+# Enabled by default, but scoped to SPTS path for fair baseline comparisons.
+SPTS_SQL_REFLECTION_ENABLED = _as_bool(
+    os.getenv("SPTS_SQL_REFLECTION_ENABLED"),
+    default=True,
+)
+SPTS_SQL_REFLECTION_SCOPE = (
+    os.getenv("SPTS_SQL_REFLECTION_SCOPE", "spts").strip().lower()
+)
