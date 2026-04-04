@@ -21,31 +21,29 @@ def normalize_role(role: str | None) -> str:
 
 def init_users_db():
     os.makedirs(os.path.dirname(USERS_DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(USERS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            hashed_password TEXT NOT NULL,
-            role TEXT NOT NULL DEFAULT 'analyst'
-        )
-    ''')
+    with sqlite3.connect(USERS_DB_PATH, timeout=10) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'analyst'
+            )
+        ''')
 
-    cursor.execute("PRAGMA table_info(users)")
-    columns = {row[1] for row in cursor.fetchall()}
-    if "role" not in columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'analyst'")
+        cursor.execute("PRAGMA table_info(users)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "role" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'analyst'")
 
-    conn.commit()
-    conn.close()
+        conn.commit()
 
 def get_user_by_username(username: str):
-    conn = sqlite3.connect(USERS_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, hashed_password, role FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
-    conn.close()
+    with sqlite3.connect(USERS_DB_PATH, timeout=10) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, hashed_password, role FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
     if row:
         return {"id": row[0], "username": row[1], "hashed_password": row[2], "role": normalize_role(row[3])}
     return None
@@ -53,18 +51,15 @@ def get_user_by_username(username: str):
 def create_user(username: str, hashed_password: str, role: str | None = None):
     try:
         normalized_role = normalize_role(role)
-        conn = sqlite3.connect(USERS_DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",
-            (username, hashed_password, normalized_role),
-        )
-        conn.commit()
-        conn.close()
+        with sqlite3.connect(USERS_DB_PATH, timeout=10) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO users (username, hashed_password, role) VALUES (?, ?, ?)",
+                (username, hashed_password, normalized_role),
+            )
+            conn.commit()
         return True
     except sqlite3.IntegrityError:
-        # Username already exists
         return False
 
-# Initialize the table when the module is imported
 init_users_db()
