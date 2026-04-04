@@ -4,10 +4,10 @@ from sqlalchemy import MetaData, String, Table, create_engine, func, inspect, se
 
 try:
     from .config import get_main_database_url
-    from .sanitizer import sanitize_sql, SecurityViolationError
+    from .sanitizer import sanitize_sql, SecurityViolationError, _sqlglot_dialect
 except ImportError:
     from config import get_main_database_url
-    from sanitizer import sanitize_sql, SecurityViolationError
+    from sanitizer import sanitize_sql, SecurityViolationError, _sqlglot_dialect
 
 
 @lru_cache(maxsize=1)
@@ -20,7 +20,8 @@ def get_main_dialect_name() -> str:
 
 
 def execute_raw_sql(sql: str):
-    safe_sql = sanitize_sql(sql)
+    dialect = _sqlglot_dialect(get_main_dialect_name())
+    safe_sql = sanitize_sql(sql, dialect=dialect)
     engine = get_main_engine()
     with engine.connect() as conn:
         result = conn.execute(text(safe_sql))

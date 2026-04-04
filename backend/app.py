@@ -53,6 +53,56 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 scheduler = BackgroundScheduler()
 
 
+def _sqlite_database_summary(parsed) -> tuple[str | None, bool]:
+    raw_target = f"{parsed.netloc}{parsed.path}" if parsed.netloc else parsed.path
+    if raw_target.startswith("/"):
+        raw_target = raw_target[1:]
+    if raw_target.lower().startswith("file:"):
+        raw_target = raw_target[5:]
+
+    database = os.path.basename(raw_target) or None
+    params = parse_qs(parsed.query)
+    mode = (params.get("mode", [""])[0] or "").strip().lower()
+    return database, mode == "ro"
+
+
+def _configured_database_health() -> dict:
+    try:
+        db_url = get_main_database_url()
+    except Exception:
+        return {
+            "configured": False,
+            "backend": None,
+            "driver": None,
+            "source": None,
+            "database": None,
+            "read_only": None,
+            "error": "main_database_not_configured",
+        }
+
+    parsed = urlsplit(db_url)
+    scheme = (parsed.scheme or "").lower()
+    backend = scheme.split("+", 1)[0] if scheme else "unknown"
+    driver = scheme.split("+", 1)[1] if "+" in scheme else None
+    source = "SPTS_DATABASE_URL" if os.getenv("SPTS_DATABASE_URL", "").strip() else "SPTS_MAIN_DB_PATH"
+
+    if backend == "sqlite":
+        database, read_only = _sqlite_database_summary(parsed)
+    else:
+        read_only = None
+        database = (parsed.path.rsplit("/", 1)[-1] or "").strip() or None
+
+    return {
+        "configured": True,
+        "backend": backend,
+        "driver": driver,
+        "source": source,
+        "database": database,
+        "read_only": read_only,
+        "error": None,
+    }
+
+
 def _assert_read_only_main_db() -> None:
     db_url = get_main_database_url()
     if not db_url.lower().startswith("sqlite://"):
@@ -113,6 +163,22 @@ async def limit_request_size(request: Request, call_next):
 @app.get("/")
 async def read_root():
     return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+
+@app.get("/health/startup")
+def startup_health():
+    db_health = _configured_database_health()
+    vlkg_status = grounding.get_vlkg_status()
+
+    status = "ok" if db_health.get("configured") else "degraded"
+    return {
+        "status": status,
+        "database": db_health,
+        "vlkg": {
+            "collection_ready": bool(vlkg_status.get("collection_ready")),
+            "mapping_count": int(vlkg_status.get("mapping_count", 0) or 0),
+        },
+    }
 
 class UserCreate(BaseModel):
     username: str = Field(min_length=3, max_length=64)

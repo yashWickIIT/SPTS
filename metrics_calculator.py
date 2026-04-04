@@ -159,8 +159,15 @@ def _extract_hierarchical_features(expression) -> collections.Counter:
         collector(expression, features)
     return features
 
-def evaluate_etm(gold_sql: str, pred_sql: str) -> dict:
-    """Calculates Enhanced Tree Matching (ETM) purely on structural equivalence."""
+def evaluate_etm(gold_sql: str, pred_sql: str, dialect: str = "sqlite") -> dict:
+    """Calculates Enhanced Tree Matching (ETM) purely on structural equivalence.
+
+    Args:
+        gold_sql: The gold-standard SQL string.
+        pred_sql: The predicted SQL string.
+        dialect: sqlglot dialect used for parsing (e.g. ``"sqlite"``, ``"mysql"``,
+            ``"postgres"``, ``"tsql"``). Defaults to ``"sqlite"`` for backward compat.
+    """
     gold_sql = (gold_sql or "").strip()
     pred_sql = (pred_sql or "").strip()
 
@@ -174,8 +181,8 @@ def evaluate_etm(gold_sql: str, pred_sql: str) -> dict:
         return result
 
     try:
-        gold_tree = parse_one(gold_sql, read="sqlite")
-        pred_tree = parse_one(pred_sql, read="sqlite")
+        gold_tree = parse_one(gold_sql, read=dialect)
+        pred_tree = parse_one(pred_sql, read=dialect)
     except Exception:
         # Malformed SQL that cannot be parsed
         return result

@@ -119,12 +119,39 @@ Tester-specific setup and usage instructions are documented in `TESTERS_README.m
 Run:
 
 ```bash
-python evaluate.py
+python evaluate.py --dataset path/to/eval.json --db-url <sqlalchemy_database_url>
 ```
+
+Alternative for local SQLite:
+
+```bash
+python evaluate.py --dataset path/to/eval.json --db-path path/to/database.sqlite
+```
+
+Database target resolution order during evaluation:
+1. Per-row `db_url` in dataset JSON
+2. Per-row `db_path` in dataset JSON
+3. CLI/env (`--db-url` or `SPTS_EVAL_DATABASE_URL`)
+4. CLI/env (`--db-path` or `SPTS_EVAL_DB_PATH`)
+5. Runtime backend configuration (`SPTS_DATABASE_URL` or `SPTS_MAIN_DB_PATH`)
 
 Artifacts:
 - `evaluation_log.json`
 - `final_thesis_metrics.json`
+
+## Startup Health
+
+Check startup/runtime readiness without exposing database credentials:
+
+```bash
+curl http://localhost:8000/health/startup
+```
+
+Response includes:
+- configured database backend (`sqlite`, `postgresql`, etc.)
+- backend source (`SPTS_DATABASE_URL` or `SPTS_MAIN_DB_PATH`)
+- sanitized database name (no credentials)
+- VLKG readiness summary
 
 ## Notes
 

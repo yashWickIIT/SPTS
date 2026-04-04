@@ -1,9 +1,11 @@
 import argparse
 import json
 import os
-import sqlite3
 import sys
 import time
+from urllib.parse import parse_qsl, urlencode, urlsplit
+
+from sqlalchemy import create_engine, text
 
 from metrics_calculator import compare_execution_results, evaluate_etm
 
@@ -61,6 +63,7 @@ def retry_with_backoff(func):
 
 try:
     from backend.grounding import ground_query
+    from backend.config import get_main_database_url
     from backend.text_to_sql import (
         baseline_text_to_sql,
         fix_sql_with_llm,
@@ -79,10 +82,11 @@ except ImportError:
 
 API_DELAY_SECONDS = 4.0
 DEFAULT_DB_ID = ""
-DEFAULT_DATASET = os.path.join("data", "bird_dev_sample.json")
+DEFAULT_DATASET = os.getenv("SPTS_EVAL_DATASET_PATH", "").strip()
 DEFAULT_LOG = "evaluation_log.json"
 DEFAULT_METRICS = "final_thesis_metrics.json"
 DEFAULT_EVAL_DB_PATH = os.getenv("SPTS_EVAL_DB_PATH", "").strip()
+DEFAULT_EVAL_DB_URL = os.getenv("SPTS_EVAL_DATABASE_URL", "").strip()
 
 
 def ensure_default_dataset_exists(test_data_path: str) -> bool:
@@ -114,54 +118,76 @@ def ensure_default_dataset_exists(test_data_path: str) -> bool:
     return False
 
 
-def _candidate_db_paths(db_id: str, explicit_db_path: str = ""):
-    candidates = []
-    if explicit_db_path:
-        candidates.append(explicit_db_path)
+def _ensure_sqlite_read_only_url(url: str) -> str:
+    if not url.lower().startswith("sqlite://"):
+        return url
 
-    normalized_db_id = (db_id or "").strip()
-    if normalized_db_id:
-        candidates.extend(
-            [
-                f"{normalized_db_id}.sqlite",
-                os.path.join("data", f"{normalized_db_id}.sqlite"),
-                os.path.join(".", "data", f"{normalized_db_id}.sqlite"),
-            ]
+    parsed = urlsplit(url)
+    query_params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query_params["mode"] = "ro"
+    query_params["uri"] = "true"
+
+    if parsed.netloc:
+        sqlite_target = f"{parsed.netloc}{parsed.path}"
+    else:
+        sqlite_target = parsed.path.lstrip("/")
+
+    if not sqlite_target.lower().startswith("file:"):
+        sqlite_target = f"file:{sqlite_target}"
+
+    return f"sqlite:///{sqlite_target}?{urlencode(query_params)}"
+
+
+def _sqlite_path_to_url(db_path: str) -> str:
+    absolute_path = os.path.abspath(db_path).replace("\\", "/")
+    return _ensure_sqlite_read_only_url(f"sqlite:///file:{absolute_path}?mode=ro&uri=true")
+
+
+def _resolve_row_database_target(item: dict, explicit_db_path: str, explicit_db_url: str) -> tuple[str | None, str | None]:
+    row_db_url = str(item.get("db_url") or "").strip()
+    if row_db_url:
+        return _ensure_sqlite_read_only_url(row_db_url), None
+
+    row_db_path = str(item.get("db_path") or "").strip()
+    if row_db_path:
+        if not os.path.exists(row_db_path):
+            return None, f"Row-level db_path not found: {row_db_path}"
+        return _sqlite_path_to_url(row_db_path), None
+
+    if explicit_db_url:
+        return _ensure_sqlite_read_only_url(explicit_db_url), None
+
+    if explicit_db_path:
+        if not os.path.exists(explicit_db_path):
+            return None, f"Evaluation db path not found: {explicit_db_path}"
+        return _sqlite_path_to_url(explicit_db_path), None
+
+    try:
+        return get_main_database_url(), None
+    except Exception:
+        return (
+            None,
+            "No evaluation database configured. Provide --db-url, --db-path, row-level db_url/db_path, "
+            "or set SPTS_DATABASE_URL/SPTS_MAIN_DB_PATH.",
         )
 
-    return tuple(candidates)
 
-
-def resolve_db_path(db_id: str, explicit_db_path: str = "") -> str | None:
-    for path in _candidate_db_paths(db_id, explicit_db_path):
-        if os.path.exists(path):
-            return path
-    return None
-
-
-def execute_raw_sql(sql: str, db_id: str, explicit_db_path: str = "") -> dict:
+def _execute_sql_on_target(sql: str, database_url: str) -> dict:
     if not sql or not sql.strip():
         return {"success": False, "error": "Empty SQL query", "data": []}
 
-    db_path = resolve_db_path(db_id, explicit_db_path)
-    if not db_path:
-        target = explicit_db_path or f"{db_id}.sqlite"
-        return {
-            "success": False,
-            "error": f"Database not found for evaluation target: {target}",
-            "data": [],
-        }
-
     try:
-        uri = f"file:{os.path.abspath(db_path)}?mode=ro"
-        conn = sqlite3.connect(uri, uri=True)
-        try:
-            cursor = conn.cursor()
-            cursor.execute(sql)
-            return {"success": True, "data": cursor.fetchall()}
-        finally:
-            conn.close()
-    except sqlite3.Error as error:
+        engine = create_engine(database_url, pool_pre_ping=True)
+        with engine.connect() as conn:
+            result = conn.execute(text(sql))
+            if not result.returns_rows:
+                return {
+                    "success": False,
+                    "error": "Query returned no rows (non-SELECT statements are not evaluated).",
+                    "data": [],
+                }
+            return {"success": True, "data": [tuple(row) for row in result.fetchall()]}
+    except Exception as error:
         return {"success": False, "error": str(error), "data": []}
 
 
@@ -190,13 +216,72 @@ def _generate_spts_sql(question: str) -> tuple[str, list[dict]]:
         return "", mappings
 
 
+def _evaluate_baseline(
+    question: str,
+    gold_result: dict,
+    gold_sql: str,
+    database_url: str,
+) -> tuple[str, dict, dict]:
+    baseline_sql = _generate_baseline_sql(question)
+    baseline_api_error = _extract_api_error(baseline_sql)
+    if baseline_api_error:
+        return (
+            baseline_sql,
+            {"success": False, "error": baseline_api_error},
+            {
+                "execution_accuracy": False,
+                "etm_exact_match": False,
+                "etm_f1_score": 0.0,
+                "api_error": True,
+            },
+        )
+
+    baseline_result, baseline_metrics = _evaluate_prediction(
+        gold_result, gold_sql, baseline_sql, database_url
+    )
+    baseline_metrics["api_error"] = False
+    return baseline_sql, baseline_result, baseline_metrics
+
+
+def _evaluate_spts(
+    question: str,
+    gold_result: dict,
+    gold_sql: str,
+    database_url: str,
+) -> tuple[str, dict, dict, list[dict]]:
+    spts_sql, mappings = _generate_spts_sql(question)
+    spts_result, spts_metrics = _evaluate_prediction(
+        gold_result, gold_sql, spts_sql, database_url
+    )
+    spts_sql, spts_result = _auto_correct_spts(
+        question, spts_sql, spts_result, mappings, database_url
+    )
+
+    spts_api_error = _extract_api_error(spts_sql)
+    if spts_api_error:
+        return (
+            spts_sql,
+            {"success": False, "error": spts_api_error},
+            {
+                "execution_accuracy": False,
+                "etm_exact_match": False,
+                "etm_f1_score": 0.0,
+                "api_error": True,
+            },
+            mappings,
+        )
+
+    spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, database_url)[1]
+    spts_metrics["api_error"] = False
+    return spts_sql, spts_result, spts_metrics, mappings
+
+
 def _auto_correct_spts(
     question: str,
     sql: str,
     result: dict,
     mappings: list[dict],
-    db_id: str,
-    explicit_db_path: str,
+    database_url: str,
 ) -> tuple[str, dict]:
     if result.get("success"):
         return sql, result
@@ -211,7 +296,7 @@ def _auto_correct_spts(
     if not fixed_sql or API_ERROR_MARKER in fixed_sql:
         return sql, result
 
-    fixed_result = execute_raw_sql(fixed_sql, db_id, explicit_db_path)
+    fixed_result = _execute_sql_on_target(fixed_sql, database_url)
     return fixed_sql, fixed_result
 
 
@@ -219,10 +304,9 @@ def _evaluate_prediction(
     gold_result: dict,
     gold_sql: str,
     predicted_sql: str,
-    db_id: str,
-    explicit_db_path: str,
+    database_url: str,
 ) -> tuple[dict, dict]:
-    pred_result = execute_raw_sql(predicted_sql, db_id, explicit_db_path)
+    pred_result = _execute_sql_on_target(predicted_sql, database_url)
     etm = evaluate_etm(gold_sql, predicted_sql)
     metrics = {
         "execution_accuracy": compare_execution_results(gold_result, pred_result),
@@ -344,8 +428,16 @@ def run_evaluation(
     output_log_path: str,
     final_metrics_path: str,
     db_path: str = DEFAULT_EVAL_DB_PATH,
+    db_url: str = DEFAULT_EVAL_DB_URL,
     delay_seconds: float = API_DELAY_SECONDS,
 ):
+    if not test_data_path:
+        print(
+            "Error: evaluation dataset path is not configured. "
+            "Use --dataset or set SPTS_EVAL_DATASET_PATH."
+        )
+        return
+
     print(f"Loading test dataset from {test_data_path}...")
     if not ensure_default_dataset_exists(test_data_path):
         print(f"Error: {test_data_path} not found. Please ensure the file exists.")
@@ -364,55 +456,31 @@ def run_evaluation(
         question = item.get("question", "")
         gold_sql = item.get("SQL", "")
         db_id = item.get("db_id", DEFAULT_DB_ID)
+        database_url, db_error = _resolve_row_database_target(item, db_path, db_url)
+        if db_error:
+            print(f"  -> Database resolution failed: {db_error}")
+            return
 
         print(f"Processing [{index}/{total_queries}]: {question[:50]}...")
 
-        gold_result = execute_raw_sql(gold_sql, db_id, db_path)
+        gold_result = _execute_sql_on_target(gold_sql, database_url)
 
-        baseline_sql = _generate_baseline_sql(question)
-        baseline_api_error = _extract_api_error(baseline_sql)
-        if baseline_api_error:
-            baseline_result = {"success": False, "error": baseline_api_error}
-            baseline_metrics = {
-                "execution_accuracy": False,
-                "etm_exact_match": False,
-                "etm_f1_score": 0.0,
-                "api_error": True,
-            }
+        baseline_sql, baseline_result, baseline_metrics = _evaluate_baseline(
+            question, gold_result, gold_sql, database_url
+        )
+        if baseline_metrics["api_error"]:
             baseline_summary["api_error_queries"] += 1
         else:
-            baseline_result, baseline_metrics = _evaluate_prediction(
-                gold_result, gold_sql, baseline_sql, db_id, db_path
-            )
-            baseline_metrics["api_error"] = False
             _update_summary(baseline_summary, baseline_metrics)
 
-        if delay_seconds:
-            time.sleep(delay_seconds)
+        time.sleep(max(delay_seconds, 0.0))
 
-        spts_sql, mappings = _generate_spts_sql(question)
-        spts_result, spts_metrics = _evaluate_prediction(
-            gold_result, gold_sql, spts_sql, db_id, db_path
+        spts_sql, spts_result, spts_metrics, mappings = _evaluate_spts(
+            question, gold_result, gold_sql, database_url
         )
-        spts_sql, spts_result = _auto_correct_spts(
-            question, spts_sql, spts_result, mappings, db_id, db_path
-        )
-
-        spts_api_error = _extract_api_error(spts_sql)
-        if spts_api_error:
-            spts_result = {"success": False, "error": spts_api_error}
-            spts_metrics = {
-                "execution_accuracy": False,
-                "etm_exact_match": False,
-                "etm_f1_score": 0.0,
-                "api_error": True,
-            }
+        if spts_metrics["api_error"]:
             spts_summary["api_error_queries"] += 1
         else:
-            spts_metrics = _evaluate_prediction(
-                gold_result, gold_sql, spts_sql, db_id, db_path
-            )[1]
-            spts_metrics["api_error"] = False
             _update_summary(spts_summary, spts_metrics)
 
         evaluation_logs.append(
@@ -431,8 +499,7 @@ def run_evaluation(
             )
         )
 
-        if index < total_queries and delay_seconds:
-            time.sleep(delay_seconds)
+        time.sleep(delay_seconds if index < total_queries else 0.0)
 
     with open(output_log_path, "w", encoding="utf-8") as file:
         json.dump(evaluation_logs, file, indent=4)
@@ -489,7 +556,7 @@ def main():
     parser.add_argument(
         "--dataset",
         default=DEFAULT_DATASET,
-        help="Path to the evaluation dataset JSON.",
+        help="Path to the evaluation dataset JSON. Can also be set via SPTS_EVAL_DATASET_PATH.",
     )
     parser.add_argument(
         "--log", default=DEFAULT_LOG, help="Path to write per-query evaluation logs."
@@ -500,7 +567,12 @@ def main():
     parser.add_argument(
         "--db-path",
         default=DEFAULT_EVAL_DB_PATH,
-        help="Explicit SQLite database path for evaluation. Overrides db_id-based file lookup.",
+        help="Explicit SQLite database path for evaluation. Can also be set via SPTS_EVAL_DB_PATH.",
+    )
+    parser.add_argument(
+        "--db-url",
+        default=DEFAULT_EVAL_DB_URL,
+        help="Explicit SQLAlchemy database URL for evaluation. Can also be set via SPTS_EVAL_DATABASE_URL.",
     )
     parser.add_argument(
         "--delay",
@@ -509,7 +581,7 @@ def main():
         help="Delay between LLM calls in seconds.",
     )
     args = parser.parse_args()
-    run_evaluation(args.dataset, args.log, args.metrics, args.db_path, args.delay)
+    run_evaluation(args.dataset, args.log, args.metrics, args.db_path, args.db_url, args.delay)
 
 
 if __name__ == "__main__":
