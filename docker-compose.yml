@@ -12,9 +12,8 @@ services:
       # Optional custom database override
       # - ./custom_db:/app/custom_db:ro
     environment:
-      - SPTS_MAIN_DB_PATH=/app/data/bird_mini_dev.sqlite
       - SPTS_USERS_DB_PATH=/app/sessions/users.sqlite
-      # If using custom DB, set SPTS_MAIN_DB_PATH in .env to /app/custom_db/<your_db>.sqlite
+      # Set SPTS_MAIN_DB_PATH or SPTS_DATABASE_URL in .env for the main query database.
     env_file:
       - .env
     restart: unless-stopped

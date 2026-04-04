@@ -25,15 +25,31 @@ def get_env_path(env_key: str, default_relative_path: str) -> str:
     return os.path.abspath(os.path.join(PROJECT_ROOT, default_relative_path))
 
 
+def get_optional_env_path(env_key: str) -> str:
+    raw = os.getenv(env_key, "").strip()
+    if not raw:
+        return ""
+
+    path = os.path.expandvars(os.path.expanduser(raw))
+    if not os.path.isabs(path):
+        path = os.path.abspath(os.path.join(PROJECT_ROOT, path))
+    return path
+
+
 def get_main_database_url() -> str:
     """Return strict read-only DB URL for main query database."""
     explicit_url = os.getenv("SPTS_DATABASE_URL", "").strip()
     if explicit_url:
         return _ensure_read_only_database_url(explicit_url)
 
-    sqlite_path = Path(
-        get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
-    )
+    explicit_path = get_optional_env_path("SPTS_MAIN_DB_PATH")
+    if not explicit_path:
+        raise RuntimeError(
+            "Main database is not configured. Set SPTS_DATABASE_URL for a hosted database "
+            "or SPTS_MAIN_DB_PATH for a local database file."
+        )
+
+    sqlite_path = Path(explicit_path)
     sqlite_file_uri = f"sqlite:///file:{sqlite_path.as_posix()}?mode=ro&uri=true"
     return _ensure_read_only_database_url(sqlite_file_uri)
 
@@ -132,8 +148,7 @@ SESSIONS_DIR = os.getenv("SPTS_SESSIONS_DIR") or "/app/sessions"
 
 # Vector database paths
 CHROMA_PATH = get_env_path("SPTS_CHROMA_PATH", os.path.join("kg", "chroma_db"))
-MAIN_DB_PATH = get_env_path("SPTS_MAIN_DB_PATH", os.path.join("data", "bird_mini_dev.sqlite"))
-MAIN_DATABASE_URL = get_main_database_url()
+MAIN_DB_PATH = get_optional_env_path("SPTS_MAIN_DB_PATH")
 ALLOWED_ORIGINS = get_allowed_origins()
 MAX_REQUEST_BODY_BYTES = int(os.getenv("SPTS_MAX_REQUEST_BODY_BYTES") or "16384")
 MAX_QUERY_LENGTH = int(os.getenv("SPTS_MAX_QUERY_LENGTH") or "1000")

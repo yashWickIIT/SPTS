@@ -36,8 +36,7 @@ SPTS/
 │   ├── update_vlkg.py
 │   └── chroma_db/
 ├── data/
-│   ├── bird_mini_dev.sqlite
-│   └── users.sqlite
+│   └── ... optional local benchmark / evaluation assets ...
 ├── sessions/
 ├── Dockerfile
 ├── Dockerfile.test
@@ -61,6 +60,10 @@ SPTS uses a single workspace-level `.env` file loaded by `backend/config.py`.
 # Preferred for failover/rotation across multiple keys
 GROQ_API_KEYS=key_1,key_2,key_3,key_4,key_5
 
+# Choose one main database configuration:
+# SPTS_MAIN_DB_PATH=path/to/your/database.sqlite
+# SPTS_DATABASE_URL=postgresql+psycopg://user:password@host:5432/dbname
+
 # Backward-compatible single key options (still supported)
 # API_KEY=your_groq_api_key_here
 # GROQ_API_KEY=your_groq_api_key_here
@@ -69,7 +72,6 @@ GROQ_API_KEYS=key_1,key_2,key_3,key_4,key_5
 ### Common Optional Settings
 
 ```env
-SPTS_MAIN_DB_PATH=data/bird_mini_dev.sqlite
 SPTS_CHROMA_PATH=kg/chroma_db
 SPTS_SESSIONS_DIR=/app/sessions
 SPTS_USERS_DB_PATH=/app/sessions/users.sqlite
@@ -80,6 +82,8 @@ SECRET_KEY=spts-super-secret-key-12345
 
 1. If `SPTS_DATABASE_URL` is set, it is used.
 2. Otherwise, `SPTS_MAIN_DB_PATH` is used.
+
+No bundled demo database is assumed by default. You must provide one of those settings.
 
 For SQLite, the main query database is enforced to read-only mode (`mode=ro`).
 
@@ -100,6 +104,7 @@ docker compose -f docker-compose.yml up --build
 ```
 
 This profile mounts local `./data` and `./sessions` into the container.
+Set `SPTS_MAIN_DB_PATH` or `SPTS_DATABASE_URL` in `.env` before starting.
 
 ## Run with Docker (Tester)
 
@@ -124,4 +129,4 @@ Artifacts:
 ## Notes
 
 - Do not commit `.env` files or real API keys.
-- Ensure Docker images used by testers include `data/` and `kg/chroma_db/` so the default workflow is functional.
+- The application runtime is database-configured; local benchmark files in `data/` are optional and only needed for evaluation workflows.

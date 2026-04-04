@@ -9,6 +9,30 @@ from metrics_calculator import compare_execution_results, evaluate_etm
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+API_ERROR_MARKER = "-- API Error:"
+
+
+def _response_to_string(result) -> str:
+    if isinstance(result, dict):
+        return str(result.get("sql", "") or "")
+    return str(result or "")
+
+
+def _has_api_error_marker(result) -> bool:
+    return API_ERROR_MARKER in _response_to_string(result)
+
+
+def _handle_retry_failure(func_name: str, attempt: int, max_retries: int, error, wait_time: float, result):
+    if attempt == max_retries - 1:
+        print(f"  -> Final attempt failed for {func_name}: {error}")
+        return True, (result if result is not None else ""), wait_time
+
+    print(
+        f"  -> API Limit/Error in {func_name}. Waiting {wait_time}s before retry {attempt + 1}/{max_retries}..."
+    )
+    time.sleep(wait_time)
+    return False, None, wait_time * 2
+
 
 def retry_with_backoff(func):
     """Decorator to retry LLM calls with exponential backoff if rate limited."""
@@ -18,27 +42,19 @@ def retry_with_backoff(func):
         wait_time = 2.0
 
         for attempt in range(max_retries):
+            result = None
             try:
                 result = func(*args, **kwargs)
-                response_str = (
-                    str(result.get("sql", ""))
-                    if isinstance(result, dict)
-                    else str(result or "")
-                )
-                if "-- API Error:" in response_str:
+                if _has_api_error_marker(result):
+                    response_str = _response_to_string(result)
                     raise ValueError(f"API Error Detected: {response_str.strip()}")
-
                 return result
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    print(f"  -> Final attempt failed for {func.__name__}: {e}")
-                    return result if "result" in locals() else ""
-
-                print(
-                    f"  -> API Limit/Error in {func.__name__}. Waiting {wait_time}s before retry {attempt + 1}/{max_retries}..."
+            except Exception as error:
+                should_return, return_value, wait_time = _handle_retry_failure(
+                    func.__name__, attempt, max_retries, error, wait_time, result
                 )
-                time.sleep(wait_time)
-                wait_time *= 2
+                if should_return:
+                    return return_value
 
     return wrapper
 
@@ -62,38 +78,77 @@ except ImportError:
     exit(1)
 
 API_DELAY_SECONDS = 4.0
-DEFAULT_DB_ID = "bird_mini_dev"
+DEFAULT_DB_ID = ""
 DEFAULT_DATASET = os.path.join("data", "bird_dev_sample.json")
 DEFAULT_LOG = "evaluation_log.json"
 DEFAULT_METRICS = "final_thesis_metrics.json"
+DEFAULT_EVAL_DB_PATH = os.getenv("SPTS_EVAL_DB_PATH", "").strip()
 
 
-def _candidate_db_paths(db_id: str):
-    return (
-        f"{db_id}.sqlite",
-        os.path.join("data", f"{db_id}.sqlite"),
-        os.path.join(".", "data", f"{db_id}.sqlite"),
-        "bird_mini_dev.sqlite",
-        os.path.join("data", "bird_mini_dev.sqlite"),
+def ensure_default_dataset_exists(test_data_path: str) -> bool:
+    """Return True if the dataset file exists.
+
+    If it is missing, attempt to build it via HF streaming
+    (``extract_official_bird_sample.get_official_data``).
+    """
+    if os.path.exists(test_data_path):
+        return True
+
+    print(f"Dataset not found at '{test_data_path}'. Attempting to build from Hugging Face…")
+    try:
+        from extract_official_bird_sample import get_official_data
+
+        success = get_official_data(output_json=test_data_path)
+        if success and os.path.exists(test_data_path):
+            print(f"Dataset built successfully: {test_data_path}")
+            return True
+    except Exception as err:
+        print(f"Failed to auto-build dataset: {err}")
+
+    print(
+        "ERROR: Could not find or build the evaluation dataset.\n"
+        "  Option A – run:  python extract_official_bird_sample.py\n"
+        "             (needs internet access; streams from Hugging Face)\n"
+        "  Option B – place bird_dev_sample.json manually in data/"
     )
+    return False
 
 
-def resolve_db_path(db_id: str) -> str | None:
-    for path in _candidate_db_paths(db_id):
+def _candidate_db_paths(db_id: str, explicit_db_path: str = ""):
+    candidates = []
+    if explicit_db_path:
+        candidates.append(explicit_db_path)
+
+    normalized_db_id = (db_id or "").strip()
+    if normalized_db_id:
+        candidates.extend(
+            [
+                f"{normalized_db_id}.sqlite",
+                os.path.join("data", f"{normalized_db_id}.sqlite"),
+                os.path.join(".", "data", f"{normalized_db_id}.sqlite"),
+            ]
+        )
+
+    return tuple(candidates)
+
+
+def resolve_db_path(db_id: str, explicit_db_path: str = "") -> str | None:
+    for path in _candidate_db_paths(db_id, explicit_db_path):
         if os.path.exists(path):
             return path
     return None
 
 
-def execute_raw_sql(sql: str, db_id: str) -> dict:
+def execute_raw_sql(sql: str, db_id: str, explicit_db_path: str = "") -> dict:
     if not sql or not sql.strip():
         return {"success": False, "error": "Empty SQL query", "data": []}
 
-    db_path = resolve_db_path(db_id)
+    db_path = resolve_db_path(db_id, explicit_db_path)
     if not db_path:
+        target = explicit_db_path or f"{db_id}.sqlite"
         return {
             "success": False,
-            "error": f"Database {db_id}.sqlite not found.",
+            "error": f"Database not found for evaluation target: {target}",
             "data": [],
         }
 
@@ -141,6 +196,7 @@ def _auto_correct_spts(
     result: dict,
     mappings: list[dict],
     db_id: str,
+    explicit_db_path: str,
 ) -> tuple[str, dict]:
     if result.get("success"):
         return sql, result
@@ -152,17 +208,21 @@ def _auto_correct_spts(
         print(f"  -> SPTS auto-correction failed: {error}")
         return sql, result
 
-    if not fixed_sql or "-- API Error:" in fixed_sql:
+    if not fixed_sql or API_ERROR_MARKER in fixed_sql:
         return sql, result
 
-    fixed_result = execute_raw_sql(fixed_sql, db_id)
+    fixed_result = execute_raw_sql(fixed_sql, db_id, explicit_db_path)
     return fixed_sql, fixed_result
 
 
 def _evaluate_prediction(
-    gold_result: dict, gold_sql: str, predicted_sql: str, db_id: str
+    gold_result: dict,
+    gold_sql: str,
+    predicted_sql: str,
+    db_id: str,
+    explicit_db_path: str,
 ) -> tuple[dict, dict]:
-    pred_result = execute_raw_sql(predicted_sql, db_id)
+    pred_result = execute_raw_sql(predicted_sql, db_id, explicit_db_path)
     etm = evaluate_etm(gold_sql, predicted_sql)
     metrics = {
         "execution_accuracy": compare_execution_results(gold_result, pred_result),
@@ -212,7 +272,7 @@ def _finalize_summary(summary: dict) -> dict:
 
 
 def _extract_api_error(sql_text: str) -> str | None:
-    marker = "-- API Error:"
+    marker = API_ERROR_MARKER
     if not isinstance(sql_text, str) or marker not in sql_text:
         return None
     return sql_text.split(marker, 1)[1].strip() or "LLM API unavailable"
@@ -283,14 +343,15 @@ def run_evaluation(
     test_data_path: str,
     output_log_path: str,
     final_metrics_path: str,
+    db_path: str = DEFAULT_EVAL_DB_PATH,
     delay_seconds: float = API_DELAY_SECONDS,
 ):
     print(f"Loading test dataset from {test_data_path}...")
-    try:
-        test_queries = load_dataset(test_data_path)
-    except FileNotFoundError:
+    if not ensure_default_dataset_exists(test_data_path):
         print(f"Error: {test_data_path} not found. Please ensure the file exists.")
         return
+
+    test_queries = load_dataset(test_data_path)
 
     evaluation_logs = []
     total_queries = len(test_queries)
@@ -306,7 +367,7 @@ def run_evaluation(
 
         print(f"Processing [{index}/{total_queries}]: {question[:50]}...")
 
-        gold_result = execute_raw_sql(gold_sql, db_id)
+        gold_result = execute_raw_sql(gold_sql, db_id, db_path)
 
         baseline_sql = _generate_baseline_sql(question)
         baseline_api_error = _extract_api_error(baseline_sql)
@@ -321,7 +382,7 @@ def run_evaluation(
             baseline_summary["api_error_queries"] += 1
         else:
             baseline_result, baseline_metrics = _evaluate_prediction(
-                gold_result, gold_sql, baseline_sql, db_id
+                gold_result, gold_sql, baseline_sql, db_id, db_path
             )
             baseline_metrics["api_error"] = False
             _update_summary(baseline_summary, baseline_metrics)
@@ -331,10 +392,10 @@ def run_evaluation(
 
         spts_sql, mappings = _generate_spts_sql(question)
         spts_result, spts_metrics = _evaluate_prediction(
-            gold_result, gold_sql, spts_sql, db_id
+            gold_result, gold_sql, spts_sql, db_id, db_path
         )
         spts_sql, spts_result = _auto_correct_spts(
-            question, spts_sql, spts_result, mappings, db_id
+            question, spts_sql, spts_result, mappings, db_id, db_path
         )
 
         spts_api_error = _extract_api_error(spts_sql)
@@ -348,9 +409,9 @@ def run_evaluation(
             }
             spts_summary["api_error_queries"] += 1
         else:
-            spts_metrics = _evaluate_prediction(gold_result, gold_sql, spts_sql, db_id)[
-                1
-            ]
+            spts_metrics = _evaluate_prediction(
+                gold_result, gold_sql, spts_sql, db_id, db_path
+            )[1]
             spts_metrics["api_error"] = False
             _update_summary(spts_summary, spts_metrics)
 
@@ -437,13 +498,18 @@ def main():
         "--metrics", default=DEFAULT_METRICS, help="Path to write summary metrics JSON."
     )
     parser.add_argument(
+        "--db-path",
+        default=DEFAULT_EVAL_DB_PATH,
+        help="Explicit SQLite database path for evaluation. Overrides db_id-based file lookup.",
+    )
+    parser.add_argument(
         "--delay",
         type=float,
         default=API_DELAY_SECONDS,
         help="Delay between LLM calls in seconds.",
     )
     args = parser.parse_args()
-    run_evaluation(args.dataset, args.log, args.metrics, args.delay)
+    run_evaluation(args.dataset, args.log, args.metrics, args.db_path, args.delay)
 
 
 if __name__ == "__main__":
